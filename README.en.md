@@ -1,4 +1,8 @@
-<div align="right">[简体中文](README.md) · **English**</div>
+<div align="right">
+
+[简体中文](README.md) · **English**
+
+</div>
 
 # dsh-pele
 
