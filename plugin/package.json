@@ -1,0 +1,58 @@
+{
+  "name": "dsh-pele",
+  "version": "0.1.0",
+  "description": "用 pele（Mermaid → SVG）在 DSH 会话中绘图：pele_draw 工具 + 内联图表卡片",
+  "author": "Hesheng (hesheng01)",
+  "homepage": "https://github.com/hesheng01/dsh-pele#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hesheng01/dsh-pele.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hesheng01/dsh-pele/issues"
+  },
+  "type": "module",
+  "main": "index.js",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "pele",
+    "mermaid",
+    "diagram"
+  ],
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "render.js",
+    "client.js",
+    "cordis.patch.yml",
+    "vendor/pele.js",
+    "vendor/pele.LICENSE",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-tools": "*"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

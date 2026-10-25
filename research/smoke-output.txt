@@ -1,0 +1,16 @@
+ok   顶层只有一条语句 window.__ModuleLoader__.load(...)
+ok   不含 ESM import/export 与 JSX 用法
+ok   脚本执行只注册 factory（惰性 CJS，无副作用）
+ok   materialize 时注入一份带 data-plugin 归属的 CSS
+ok   factory 返回 { apply, inject } 且只依赖基线模块 react
+ok   apply 等待 tool.call.toolview 声明后再注册
+ok   preparing：占位卡 + 流式 title（PartialArguments 惰性视图）
+ok   start：占位卡 + argsRaw 完整参数
+ok   result：meta.svg 内联渲染 + 尺寸/字节/文件脚注
+ok   result：useDisclosure 展开后显示 Mermaid 源码
+ok   result：meta.svgOmitted 降级卡（超内联上限）
+ok   result：isError 显示错误文本（content 为空时退回结构化 error）
+ok   result：恶意/异常 SVG 清洗与拒绝
+ok   异常输入不崩：block 缺失 / args 视图不完整 / meta 非对象
+
+14 passed, 0 failed

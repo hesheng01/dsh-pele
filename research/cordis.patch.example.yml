@@ -1,0 +1,29 @@
+# dsh-pele 的最小 bundle 层（package.json 的 dsh.bundle.patch 指向本文件）。
+#
+# 宿主加载顺序：profile 的 dsh.profile.bundles 依次应用每个 bundle 的 patch，
+# 最后再应用 profile 自己的 cordis.patch.yml。这里 insert 一行 Loader entry：
+#   id   —— Loader entry id，也是 `- id: pele` 配置覆盖用的稳定 id；
+#   name —— npm 包名，必须能被 profile 的解析链 resolve 到（node_modules symlink 或 hoisted）。
+#
+# 关键：dsh-client-modules 的宿主扫描只对「enabled 且 fiber 已创建」的 Loader entry
+# 读取 package.json 的 dsh.client（见 client-modules/lib/index.js processOne:855）。
+# 所以本行必须 enabled，且 lib/index.js 必须是合法 Host 插件（否则没有 fiber -> 没有客户端 bundle）。
+- insert:
+    - id: pele
+      name: dsh-pele
+      # config 会作为 apply(ctx, config) 的第二参数传入 Host 半身；
+      # 省略时 lib/index.js 里的 DEFAULT_CONFIG 生效。
+      # config:
+      #   save: true
+      #   saveDir: .dsh-pele/diagrams
+      #   maxSourceBytes: 200000
+      #   maxSvgBytes: 1500000
+      #   maxInlineSvgBytes: 512000
+      #   timeoutMs: 20000
+
+# 备选（不推荐长期使用）：不建 bundle、直接把同一行插入 profile 的 cordis.patch.yml，
+# 效果相同，但插件不再是可独立分发的 bundle：
+#
+# - insert:
+#     - id: pele
+#       name: dsh-pele

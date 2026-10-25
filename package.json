@@ -1,0 +1,22 @@
+{
+  "name": "dsh-pele-repo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "dsh-pele 仓库级脚本；可安装的 DSH bundle 在 plugin/ 目录",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node scripts/selftest.mjs",
+    "test:ssr": "node scripts/card-ssr-test.mjs",
+    "gallery": "node scripts/build-gallery.mjs",
+    "demo": "node scripts/build-render-demo.mjs"
+  },
+  "author": "Hesheng (hesheng01)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hesheng01/dsh-pele.git"
+  }
+}

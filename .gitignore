@@ -1,0 +1,12 @@
+# 探针/临时产物
+.probe/
+.playwright-mcp/
+node_modules/
+# 运行时图表输出（按需保留或提交）
+.dsh-pele/
+
+# 个人会话截图（含用户名/会话列表），不随仓库发布
+deliverables/live-card-demo.png
+# 编辑器 / 系统杂项
+.DS_Store
+*.log

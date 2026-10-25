@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Pele diagrams",
+    "description": "Render Mermaid source to SVG with pele, shown inline in the conversation and optionally saved as .svg files."
+  }
+}

@@ -1,0 +1,18 @@
+# dsh-pele bundle layer: 用 pele（Mermaid → SVG）在会话中绘图。
+#
+# Host 半身注册模型工具 pele_draw；客户端半身把该工具调用渲染成内联图表卡片。
+# 下面 config 的每一项都可以在本文件里按 id `pele` 覆盖，重启后生效。
+- insert:
+    - id: pele
+      name: dsh-pele
+      config:
+        # 单次 Mermaid 源码上限（字节）。
+        maxSourceBytes: 200000
+        # 单次 SVG 输出上限（字节）；超过直接拒绝，避免超大图拖垮会话。
+        maxSvgBytes: 1500000
+        # 允许内联进会话卡片（tool result meta）的 SVG 上限（字节）；更大时卡片提示图表过大。
+        maxInlineSvgBytes: 512000
+        # 工具调用整体超时（毫秒）。
+        timeoutMs: 20000
+        # 是否向 Agent 系统提示注入「何时/如何调用 pele_draw」的说明（建议开启）。
+        prompt: true

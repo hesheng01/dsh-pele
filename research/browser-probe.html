@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pele 1.9.0 browser probe</title>
+<style>
+  body { font: 14px/1.45 system-ui, sans-serif; margin: 16px; max-width: 1100px; }
+  h1 { font-size: 18px; }
+  code, pre { font-family: ui-monospace, monospace; font-size: 12px; }
+  pre#out { background: #f4f4f4; border: 1px solid #ccc; border-radius: 6px; padding: 12px; overflow: auto; max-height: 70vh; }
+  .fixture { position: absolute; left: -10000px; top: 0; }
+  .theme { --pele-bg: #010203; --pele-fg: #040506; --pele-muted: #070809; --pele-line: #0a0b0c;
+           --pele-surface: #0d0e0f; --pele-surface-alt: #101112; --pele-border: #131415; --pele-accent: #161718;
+           --pele-radius: 17px; --pele-font: Georgia, serif; }
+</style>
+<!-- The global build is an IIFE assigned to top-level `var pele` (= window.pele).
+     Default path assumes this file is served from the repo root next to `.probe/`.
+     Override with e.g. browser-probe.html?pele=/node_modules/pele/dist/pele.global.js -->
+<script>
+  (function () {
+    var q = new URLSearchParams(location.search).get('pele');
+    var src = q || '../.probe/package/dist/pele.global.js';
+    document.write('<script src="' + src.replace(/"/g, '%22') + '"><\/script>');
+  })();
+</script>
+</head>
+<body>
+<h1>pele 1.9.0 browser probe</h1>
+<p>
+  Serve the repo root over HTTP (browsers block <code>file://</code> script + fetch), e.g.
+  <code>python3 -m http.server 8000</code>, then open
+  <code>/research/browser-probe.html</code>. Results are written to
+  <code>window.__BROWSER_RESULTS__</code> and the <code>&lt;pre&gt;</code> below.
+</p>
+<pre id="out">running…</pre>
+<script>
+(async function () {
+  'use strict';
+  const R = { startedAt: new Date().toISOString() };
+  const out = document.getElementById('out');
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const mk = (css, className) => {
+    const d = document.createElement('div');
+    if (className) d.className = className;
+    d.style.cssText = css || '';
+    d.classList.add('fixture');
+    document.body.append(d);
+    return d;
+  };
+  const FLOW = 'flowchart LR\n  A[Start here] --> B{Decision?}\n  B -- yes --> C[CJK 中文标签]\n  B -- no --> D[WWWWWWWW]';
+  const WIDE = 'flowchart LR\n  A[One] --> B[Two] --> C[Three] --> D[Four] --> E[Five] --> F[Six]';
+
+  try {
+    R.hasGlobal = typeof window.pele === 'object' && window.pele !== null;
+    R.globalKeys = R.hasGlobal ? Object.keys(window.pele).sort() : [];
+    R.userAgent = navigator.userAgent;
+    if (!R.hasGlobal) throw new Error('window.pele missing — global build did not load');
+
+    // ---- 1. render() dimensions for all sample sources (if sources.json is reachable) ----
+    R.render = {};
+    try {
+      const sources = await fetch(new URL('samples/sources.json', location.href)).then((r) => r.json());
+      for (const [name, src] of Object.entries(sources)) {
+        try {
+          const r = window.pele.render(src);
+          R.render[name] = { width: r.width, height: r.height, type: r.type, mermaidType: r.mermaidType, bytes: r.svg.length };
+        } catch (e) {
+          R.render[name] = { error: e.name + '/' + e.code + ': ' + String(e.message).split('\n')[0] };
+        }
+      }
+    } catch (e) {
+      R.render.note = 'could not fetch samples/sources.json: ' + e.message;
+    }
+
+    // ---- 2. mount(): responsive layout, unique ids, lifecycle ----
+    const box = mk('width:320px;padding:10px;border:1px solid #ccc');
+    let onRenderCalls = 0;
+    const mounted = window.pele.mount(box, FLOW, { onRender: () => onRenderCalls++ });
+    const svg = box.querySelector('svg');
+    R.mount = {
+      result: mounted.result && { width: mounted.result.width, height: mounted.result.height },
+      containerClientWidth: box.clientWidth,
+      svgWidthAttr: svg.getAttribute('width'),
+      svgStylePrefix: (svg.getAttribute('style') || '').slice(0, 44),
+      idPrefixSample: [...box.querySelectorAll('[id]')].map((e) => e.id).slice(0, 1),
+      onRenderCalls,
+    };
+    const beforeUpdate = mounted.result.width;
+    mounted.update(WIDE);
+    R.mount.afterUpdate = { width: mounted.result.width, changed: mounted.result.width !== beforeUpdate };
+    mounted.destroy();
+    R.mount.afterDestroyChildCount = box.children.length;
+
+    // narrow container: mount should re-render with maxWidth = clientWidth - padding
+    const narrow = mk('width:180px');
+    const narrowMounted = window.pele.mount(narrow, WIDE);
+    R.mount.narrow = { svgWidth: narrow.querySelector('svg').getAttribute('width'), resultWidth: narrowMounted.result.width, clientWidth: narrow.clientWidth };
+    narrow.style.width = '360px';
+    await wait(250);
+    R.mount.narrow.afterResize = { svgWidth: narrow.querySelector('svg').getAttribute('width'), clientWidth: narrow.clientWidth };
+
+    // mount() with explicit maxWidth keeps the natural layout but CSS-scales it
+    const forced = mk('width:180px');
+    const forcedMounted = window.pele.mount(forced, WIDE, { maxWidth: 1000 });
+    R.mount.maxWidthOverride = { svgWidth: forced.querySelector('svg').getAttribute('width'), resultWidth: forcedMounted.result.width };
+
+    // ---- 3. error UI ----
+    const errhost = mk('width:320px');
+    let errorArg = null;
+    const errMounted = window.pele.mount(errhost, 'flowchart LR\n  A -->> B', { onError: (e) => { errorArg = { name: e.name, code: e.code }; } });
+    const errdiv = errhost.querySelector('.pele-error');
+    R.error = {
+      mountedErrorName: errMounted.error && errMounted.error.name,
+      code: errMounted.error && errMounted.error.code,
+      divClass: errdiv && errdiv.className,
+      divText: errdiv && errdiv.textContent.slice(0, 80),
+      divStyle: errdiv && (errdiv.getAttribute('style') || '').slice(0, 80),
+      onError: errorArg,
+    };
+    // error over an existing diagram: svg keeps 0.4 opacity + child error div
+    const err2 = mk('width:320px');
+    const errMounted2 = window.pele.mount(err2, 'flowchart LR\n A-->B');
+    errMounted2.update('flowchart LR\n A -->> B');
+    R.error.overExisting = {
+      svgOpacity: err2.querySelector('svg') && err2.querySelector('svg').style.opacity,
+      errorDiv: !!err2.querySelector('.pele-error'),
+      title: err2.querySelector('.pele-error') && err2.querySelector('.pele-error').getAttribute('title'),
+    };
+
+    // ---- 4. theme resolution through CSS variables ----
+    const themehost = mk('width:900px', 'theme');
+    const themeMounted = window.pele.mount(themehost, WIDE);
+    const rect = themehost.querySelector('rect');
+    const text = themehost.querySelector('text');
+    const edge = themehost.querySelector('g.pele-edges path');
+    R.theme = {
+      rectFill: rect && getComputedStyle(rect).fill,
+      rectStroke: rect && getComputedStyle(rect).stroke,
+      rectRx: rect && getComputedStyle(rect).rx,
+      textFill: text && getComputedStyle(text).fill,
+      textFontFamily: text && getComputedStyle(text).fontFamily,
+      edgeStroke: edge && getComputedStyle(edge).stroke,
+      svgUsesVar: /var\(--_/.test(themehost.querySelector('svg').getAttribute('style') || ''),
+    };
+
+    // ---- 5. sanitize callback + zoom ----
+    const sanHost = mk('width:400px');
+    let sanitizeCalls = 0;
+    const sanMounted = window.pele.mount(sanHost, 'flowchart LR\n A-->B', {
+      sanitize: (svgText) => { sanitizeCalls++; const d = document.createElement('div'); d.dataset.sanitized = '1'; d.innerHTML = svgText; return d; },
+    });
+    R.sanitize = { calls: sanitizeCalls, firstChild: sanHost.firstElementChild && sanHost.firstElementChild.tagName, marker: sanHost.firstElementChild && sanHost.firstElementChild.dataset.sanitized };
+    const zoomHost = mk('width:180px;height:120px;overflow:hidden');
+    const zoomMounted = window.pele.mount(zoomHost, WIDE, { zoom: true });
+    await wait(120);
+    R.zoom = { hasZoom: !!zoomMounted.zoom, controls: zoomHost.querySelectorAll('.pele-zoom button').length, scale: zoomMounted.zoom && zoomMounted.zoom.scale, fit: zoomMounted.zoom && zoomMounted.zoom.fit };
+
+    // ---- 6. host-render + inject: same SVG, CSS scaling + theme vars + font width risk ----
+    const nodeSvg = window.pele.render(FLOW).svg;
+    const injectA = mk('width:200px;--pele-bg:#fffcf0;--pele-surface:#f2f0e5;--pele-border:#cecdc3');
+    injectA.innerHTML = nodeSvg;
+    const injectASvg = injectA.querySelector('svg');
+    const boxA = injectASvg.getBoundingClientRect();
+    const injectB = mk('width:900px;--pele-font:monospace');
+    injectB.innerHTML = nodeSvg;
+    const injectC = mk('width:900px;--pele-font:sans-serif');
+    injectC.innerHTML = nodeSvg;
+    const textWidths = (host) => [...host.querySelectorAll('text')].map((t) => +t.getBBox().width.toFixed(2));
+    R.injection = {
+      widthAttr: injectASvg.getAttribute('width'),
+      stylePrefix: (injectASvg.getAttribute('style') || '').slice(0, 44),
+      scaledTo: { width: Math.round(boxA.width), height: Math.round(boxA.height) },
+      containerWidth: injectA.clientWidth,
+      themedRectFill: injectA.querySelector('rect') && getComputedStyle(injectA.querySelector('rect')).fill,
+      textWidthsSans: textWidths(injectC),
+      textWidthsMono: textWidths(injectB),
+    };
+
+    R.done = true;
+  } catch (e) {
+    R.fatal = { name: e && e.name, message: e && e.message, stack: String(e && e.stack).slice(0, 500) };
+  }
+  R.finishedAt = new Date().toISOString();
+  window.__BROWSER_RESULTS__ = R;
+  out.textContent = JSON.stringify(R, null, 2);
+  document.title = R.fatal ? 'pele browser probe — FAILED' : 'pele browser probe — done';
+})();
+</script>
+</body>
+</html>

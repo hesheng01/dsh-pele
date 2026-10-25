@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Pele 绘图",
+    "description": "用 pele 把 Mermaid 源码渲染成 SVG 图表，直接显示在会话卡片中，并可保存为 .svg 文件。"
+  }
+}
