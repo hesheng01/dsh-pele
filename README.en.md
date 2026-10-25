@@ -11,7 +11,7 @@
 Draw diagrams in **DeepSeek Harness (DSH)** sessions with [pele](https://github.com/obsidianmd/pele) (a Mermaid → SVG renderer). The model calls the `pele_draw` tool with Mermaid source; the Host renders it to SVG with pele (keeping the SVG out of the model context), and the Web client turns that tool call into an **inline diagram card**. The card offers **SVG** / **PNG** downloads from its top-right corner, and the plugin never writes workspace files.
 
 - Target profile: `web` (DSH 0.2.1-rc.2)
-- Version: **0.1.0** (open-source release; not published to npm yet — install from a local directory or Git)
+- Version: **0.1.1** (open-source release; not published to npm yet — install from a local directory or Git)
 - Repository: <https://github.com/hesheng01/dsh-pele>
 - Plain JS, no build step, no runtime npm dependencies (pele is vendored under `plugin/vendor/` with its MIT license)
 

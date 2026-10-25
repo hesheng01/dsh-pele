@@ -11,7 +11,7 @@
 用 [pele](https://github.com/obsidianmd/pele)（Mermaid → SVG 渲染器）在 **DeepSeek Harness（DSH）** 会话里绘图：模型调用工具 `pele_draw` 提交 Mermaid 源码，Host 端用 pele 把图渲染成 SVG（不占模型上下文），Web 会话里由客户端插件把该工具调用渲染成**内联图表卡片**；卡片右上角可把图下载为 **SVG** 或 **PNG**，不写工作区文件。
 
 - 目标 profile：`web`（DSH 0.2.1-rc.2）
-- 版本：**0.1.0**（开源版本；尚未发布到 npm，可用本地目录或 Git 仓库安装）
+- 版本：**0.1.1**（开源版本；尚未发布到 npm，可用本地目录或 Git 仓库安装）
 - 仓库：<https://github.com/hesheng01/dsh-pele>
 - 纯 JS、无构建步骤、无运行时 npm 依赖（pele 以 MIT 许可 vendored 在 `plugin/vendor/`）
 

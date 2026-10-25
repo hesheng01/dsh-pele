@@ -1,6 +1,6 @@
 {
   "name": "dsh-pele",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "用 pele（Mermaid → SVG）在 DSH 会话中绘图：pele_draw 工具 + 内联图表卡片",
   "author": "Hesheng (hesheng01)",
   "homepage": "https://github.com/hesheng01/dsh-pele#readme",
@@ -15,7 +15,14 @@
   "type": "module",
   "main": "index.js",
   "license": "MIT",
-  "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "pele", "mermaid", "diagram"],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "pele",
+    "mermaid",
+    "diagram"
+  ],
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",

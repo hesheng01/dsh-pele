@@ -1,6 +1,6 @@
 {
   "name": "dsh-pele-repo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "dsh-pele 仓库级脚本；可安装的 DSH bundle 在 plugin/ 目录",
   "type": "module",
