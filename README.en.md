@@ -50,6 +50,7 @@ dsh-pele/
 │   └── build-render-demo.mjs   # builds the "pele vs mermaid.js / rendering process" demo pages
 ├── research/                   # pele API / client contract research, 33-type corpus and traversal report
 ├── deliverables/               # screenshots and demo assets (card showcase, download menu, gallery, comparison, GIF)
+├── docs/icon-180.png           # market tile icon (180x180 PNG)
 ├── CHANGELOG.md
 └── LICENSE                     # MIT
 ```

@@ -50,6 +50,7 @@ dsh-pele/
 │   └── build-render-demo.mjs   # 「pele vs mermaid.js / 渲染过程」演示页生成
 ├── research/                   # pele API/客户端契约调研、33 种图表语料与遍历报告
 ├── deliverables/               # 截图与演示产物（卡片效果、下载菜单、遍历画廊、对比图与 GIF）
+├── docs/icon-180.png           # 市场卡片图标（180×180 PNG）
 ├── CHANGELOG.md
 └── LICENSE                     # MIT
 ```

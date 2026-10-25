@@ -6,7 +6,8 @@
   "homepage": "https://github.com/hesheng01/dsh-pele#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hesheng01/dsh-pele.git"
+    "url": "git+https://github.com/hesheng01/dsh-pele.git",
+    "directory": "plugin"
   },
   "bugs": {
     "url": "https://github.com/hesheng01/dsh-pele/issues"
@@ -14,14 +15,7 @@
   "type": "module",
   "main": "index.js",
   "license": "MIT",
-  "keywords": [
-    "dsh",
-    "dsh-plugin",
-    "deepseek-harness",
-    "pele",
-    "mermaid",
-    "diagram"
-  ],
+  "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "pele", "mermaid", "diagram"],
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
