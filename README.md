@@ -42,6 +42,10 @@
 
 ![边标签背景修复前后对比](deliverables/effect-label-background.png)
 
+节点被 `classDef`/`style` 指定了固定填充色时，标签文字也会按填充色亮度自动选深/浅高对比色（夜间模式下浅色填充节点不再"浅字看不见"）：
+
+![夜间模式固定填充色节点的文字对比度修复](deliverables/effect-dark-contrast.png)
+
 更多演示：`deliverables/traversal-gallery.png`（33 种图表）、`deliverables/pele-vs-mermaid/`（与 mermaid.js 的对比、渲染过程 GIF）。
 
 ## 目录结构
@@ -131,7 +135,7 @@ pele_draw({
 
 | 项目 | 结果 | 方式 |
 | --- | --- | --- |
-| 离线渲染自检 | 23/23 通过 + 4 类错误路径 | `node scripts/selftest.mjs` |
+| 离线渲染自检 | 23/23 通过 + 4 类错误路径 + 对比度校正断言 | `node scripts/selftest.mjs` |
 | 卡片组件 SSR 测试 | 14/14 通过（含下载入口/查看器控件/菜单默认关闭/无 SVG 不显示/配色断言） | `node scripts/card-ssr-test.mjs` |
 | 33 类语料遍历 | 33/33 图表类型成功，0 失败 | `node scripts/build-traversal-report.mjs`（与 `pele_draw` 同一渲染链路），报告见 `research/traversal-report.json` |
 | 渲染结果视觉核验 | 33 种图表全部正确渲染 | `deliverables/traversal-gallery.png`（由 33 个真实 SVG 内联生成） |
@@ -156,6 +160,7 @@ npm run demo        # 生成 pele vs mermaid.js 对比页与渲染过程页
 4. **下载**：SVG 直接导出 Host 渲染的原始 SVG；PNG 先在浏览器里克隆当前渲染的 `<svg>`，把继承来的主题 CSS 变量固化成内联值，再按 2x（超长边/超面积自动降级）画到 canvas，背景取卡片背景色。
 5. **确定性**：每张图用源码 sha1 生成 `idPrefix`（注意：pele 渲染输出实际不使用它，同页多图内部 id 可能重复，见已知限制）。
 6. **工具 schema**：`output.schema` 使用 dsh-tools 的「值 schema DSL」（必填标记写在属性上），不是原始 JSON Schema。
+7. **固定填充色的文字对比度**：模型常用 `classDef` 给节点指定填充色（如 `fill:#fecaca`），而标签文字默认继承主题文字色——夜间模式下浅色填充 + 浅色文字几乎看不清。Host 渲染后按填充色的相对亮度自动给标签注入深/浅高对比文字色（作者显式写的 `color` 不覆盖），对比图见 `deliverables/effect-dark-contrast.png`。
 
 ## 已知限制
 
@@ -165,6 +170,7 @@ npm run demo        # 生成 pele vs mermaid.js 对比页与渲染过程页
 - 会话 Turn 落定后，DSH 会把较早的工具行折叠进 Turn-process 分组（宿主行为，非插件问题）。
 - 同一页面同时出现多张 pele SVG 时，SVG 内部的元素 id（如 `U`/`A`/`D`）可能重复：pele 渲染器不使用我们传入的 `idPrefix`（实测 1.9.0/1.10.0），目前不影响显示，属于记录在案的已知限制。
 - 交互查看器以鼠标操作为主（滚轮缩放、右键拖动、左键框选）；触控板捏合与触屏手势未做专门适配。
+- 文字对比度校正只处理「节点填充色 + 标签文字」这一组合；作者显式指定文字颜色时保持作者选择。
 
 ## 许可
 

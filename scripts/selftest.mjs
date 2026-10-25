@@ -92,6 +92,20 @@ try {
 	if (!hinted) failures += 1;
 }
 
+// 对比度校正：classDef/固定填充色节点的标签应自动换成高对比文字色（夜间模式可读）。
+{
+	const light = renderDiagram('flowchart LR\n  A["浅底"]:::risk\n  classDef risk fill:#fecaca');
+	const dark = renderDiagram('flowchart LR\n  A["深底"]:::dark\n  classDef dark fill:#1f2937');
+	const plain = renderDiagram('flowchart LR\n  A[默认]');
+	const check = (ok, message) => {
+		console.log(`- 对比度校正: ${message} ${ok ? '✅' : '（FAILED）'}`);
+		if (!ok) failures += 1;
+	};
+	check(/class="pele-label"[^>]*fill="#1f1f1f"/.test(light.svg), '浅色填充 → 深色文字');
+	check(/class="pele-label"[^>]*fill="#f5f5f5"/.test(dark.svg), '深色填充 → 浅色文字');
+	check(!/class="pele-label"[^>]*fill="#(?:1f1f1f|f5f5f5)"/.test(plain.svg), '默认主题节点不注入文字色');
+}
+
 // 安全上限：用极小的 outputLimit 触发 pele 的 limit 错误路径。
 try {
 	renderDiagram('flowchart LR\n  A --> B', { outputLimit: 200 });

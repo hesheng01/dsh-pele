@@ -42,6 +42,10 @@ Edge-label background fix (top: `--pele-bg: transparent`, lines cut through the 
 
 ![Edge label background before/after](deliverables/effect-label-background.png)
 
+When `classDef`/`style` gives a node a fixed fill color, its label text now picks a high-contrast color based on that fill's luminance (in dark mode, light-filled nodes no longer render light text on light fill):
+
+![Dark-mode label contrast for fixed-fill nodes](deliverables/effect-dark-contrast.png)
+
 More demos: `deliverables/traversal-gallery.png` (33 diagram types) and `deliverables/pele-vs-mermaid/` (comparison with mermaid.js, rendering-process GIF).
 
 ## Layout
@@ -131,7 +135,7 @@ When `config.prompt` is `true` (default), the plugin injects a `## Diagrams (pel
 
 | Item | Result | How |
 | --- | --- | --- |
-| Offline render self-test | 23/23 passed + 4 error paths | `node scripts/selftest.mjs` |
+| Offline render self-test | 23/23 passed + 4 error paths + contrast assertions | `node scripts/selftest.mjs` |
 | Card SSR test | 14/14 passed (download entry, viewer controls, closed menu, no-SVG case) | `node scripts/card-ssr-test.mjs` |
 | 33-type corpus traversal | 33/33 diagram types ok, 0 failures | `node scripts/build-traversal-report.mjs` (same render path as `pele_draw`), see `research/traversal-report.json` |
 | Visual check | All 33 diagram types render correctly | `deliverables/traversal-gallery.png` (built from the 33 real SVGs) |
@@ -156,6 +160,7 @@ npm run demo        # build the pele vs mermaid.js and rendering-process pages
 4. **Download**: SVG exports the original SVG rendered by the Host. PNG clones the currently rendered `<svg>` in the browser, bakes the inherited theme CSS variables into inline values, and draws it to a canvas at 2x (falling back for huge edge/area sizes); the background is the card background.
 5. **Determinism**: every diagram gets a `sha1`-derived `idPrefix` (note: pele's render output does not use it in 1.9/1.10, so duplicate element ids are possible on one page — see limitations).
 6. **Tool schema**: `output.schema` uses the dsh-tools "value schema DSL" (required flags on properties), not raw JSON Schema.
+7. **Label contrast on fixed fills**: models often use `classDef` to give nodes a fixed fill (e.g. `fill:#fecaca`), while label text inherits the theme text color — in dark mode, light fills plus light text become nearly unreadable. After rendering, the Host injects a high-contrast label color based on the fill's relative luminance (an author-specified `color` is respected); before/after in `deliverables/effect-dark-contrast.png`.
 
 ## Known limitations
 
@@ -165,6 +170,7 @@ npm run demo        # build the pele vs mermaid.js and rendering-process pages
 - After a turn settles, DSH folds earlier tool rows into the turn-process group (host behavior, not a plugin issue).
 - Multiple pele SVGs on one page can repeat internal element ids (e.g. `U`/`A`/`D`): the renderer ignores our `idPrefix` (verified with 1.9.0/1.10.0). It does not affect display today and is recorded as a known limitation.
 - The interactive viewer targets mouse input (wheel zoom, right-drag pan, left-drag box zoom); trackpad pinch and touch gestures are not specially handled.
+- The contrast correction only covers "node fill + label text"; an explicitly specified text color is left untouched.
 
 ## License
 

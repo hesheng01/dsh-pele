@@ -63,6 +63,151 @@ export function sanitizeSvg(svg) {
 		.replace(/\s(?:xlink:href|href)\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*')/gi, '');
 }
 
+/** 常见 CSS 颜色名 → RGB（只收录 classDef 里常用的；未收录的颜色跳过校正，保持原样）。 */
+const NAMED_COLORS = {
+	black: [0, 0, 0],
+	white: [255, 255, 255],
+	red: [255, 0, 0],
+	green: [0, 128, 0],
+	blue: [0, 0, 255],
+	yellow: [255, 255, 0],
+	orange: [255, 165, 0],
+	purple: [128, 0, 128],
+	pink: [255, 192, 203],
+	gray: [128, 128, 128],
+	grey: [128, 128, 128],
+	lightgray: [211, 211, 211],
+	lightgrey: [211, 211, 211],
+	lightblue: [173, 216, 230],
+	lightgreen: [144, 238, 144],
+	lightcoral: [240, 128, 128],
+	lightyellow: [255, 255, 224],
+	darkblue: [0, 0, 139],
+	darkgreen: [0, 100, 0],
+	darkred: [139, 0, 0],
+	navy: [0, 0, 128],
+	teal: [0, 128, 128],
+	cyan: [0, 255, 255],
+	magenta: [255, 0, 255],
+	silver: [192, 192, 192],
+};
+
+/** 把 CSS 颜色解析成相对亮度（0=黑，1=白）；不认识的格式返回 undefined。 */
+function parseColorLuminance(value) {
+	const text = String(value).trim().toLowerCase();
+	const hex = /^#([0-9a-f]{3,8})$/.exec(text);
+	let rgb;
+	if (hex !== null) {
+		let digits = hex[1];
+		if (digits.length === 3 || digits.length === 4) digits = digits.split('').map((c) => c + c).join('');
+		if (digits.length !== 6 && digits.length !== 8) return undefined;
+		rgb = [0, 2, 4].map((offset) => parseInt(digits.slice(offset, offset + 2), 16));
+	} else {
+		const functional = /^rgba?\(([^)]+)\)$/.exec(text);
+		if (functional !== null) {
+			const parts = functional[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+			if (parts.length < 3 || parts.slice(0, 3).some((n) => !Number.isFinite(n))) return undefined;
+			rgb = parts.slice(0, 3);
+		} else if (Array.isArray(NAMED_COLORS[text])) {
+			rgb = NAMED_COLORS[text];
+		} else {
+			return undefined;
+		}
+	}
+	const linear = (channel) => {
+		const c = channel / 255;
+		return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+	};
+	return 0.2126 * linear(rgb[0]) + 0.7152 * linear(rgb[1]) + 0.0722 * linear(rgb[2]);
+}
+
+/**
+ * 从节点组的内部标记里取出「显式填充色」：优先 style 里的 fill:#xxx（classDef 编译产物），
+ * 其次 fill 属性。返回 undefined 表示该节点跟随主题变量（var(--_s) 等），不需要校正。
+ * @param inner - 节点组的内部 SVG 片段。
+ */
+function explicitNodeFill(inner) {
+	const styled = /style="[^"]*?\bfill\s*:\s*([^;"]+)/i.exec(inner);
+	if (styled !== null) return styled[1].trim();
+	const attr = /\bfill="([^"]+)"/i.exec(inner);
+	if (attr !== null) return attr[1].trim();
+	return undefined;
+}
+
+/**
+ * 节点被 classDef/style 指定了固定填充色时，标签文字会继承主题文字色：
+ * 夜间模式下主题文字是浅色，落在浅色填充上就几乎看不清（浅色主题下落在深色填充上也一样）。
+ * 这里按填充色的相对亮度挑一个高对比文字色（黑或白中对比更高的那个），
+ * 只对没有显式文字色的 text 生效，作者自己指定的 color 不覆盖。
+ * @param fill - 显式填充色值。
+ * @returns 注入用的文字颜色，或 undefined（不处理）。
+ */
+function contrastTextColor(fill) {
+	if (typeof fill !== 'string') return undefined;
+	const normalized = fill.trim().toLowerCase();
+	if (normalized === '' || normalized === 'none' || normalized === 'transparent') return undefined;
+	if (normalized.startsWith('var(') || normalized.startsWith('url(')) return undefined;
+	const luminance = parseColorLuminance(normalized);
+	if (luminance === undefined) return undefined;
+	const contrastWithDark = (luminance + 0.05) / 0.05;
+	const contrastWithLight = 1.05 / (luminance + 0.05);
+	return contrastWithDark >= contrastWithLight ? '#1f1f1f' : '#f5f5f5';
+}
+
+/** 从 `<g` 之后的位置找到与之配对的 `</g>` 末尾（返回结束位置的下标）。 */
+function findGroupEnd(svg, fromIndex) {
+	let depth = 1;
+	let index = fromIndex;
+	while (index < svg.length) {
+		const nextOpen = svg.indexOf('<g', index);
+		const nextClose = svg.indexOf('</g>', index);
+		if (nextClose < 0) return -1;
+		if (nextOpen >= 0 && nextOpen < nextClose) {
+			depth += 1;
+			index = nextOpen + 2;
+		} else {
+			depth -= 1;
+			index = nextClose + 4;
+			if (depth === 0) return index;
+		}
+	}
+	return -1;
+}
+
+/**
+ * 给「显式填充色」的节点标签注入高对比文字色，修掉夜间模式下的低对比度问题。
+ * 渲染结果里节点的 classDef 颜色会编译成 rect 的行内 style（如 fill:#fecaca），
+ * 而标签 text 没有自己的 fill，会继承根 <svg fill="var(--_fg)"> —— 主题一变就失配。
+ * @param svg - 已清理的 SVG 字符串。
+ * @returns 注入文字色后的 SVG（没有需要处理的节点时原样返回）。
+ */
+export function ensureNodeLabelContrast(svg) {
+	const source = String(svg);
+	const openTag = /<g class="[^"]*\bpele-node\b[^"]*"[^>]*>/g;
+	let output = '';
+	let cursor = 0;
+	let match;
+	while ((match = openTag.exec(source)) !== null) {
+		const innerStart = openTag.lastIndex;
+		const end = findGroupEnd(source, innerStart);
+		if (end < 0) break;
+		const innerEnd = end - '</g>'.length;
+		const inner = source.slice(innerStart, innerEnd);
+		const color = contrastTextColor(explicitNodeFill(inner));
+		if (color !== undefined && !inner.includes(`fill="${color}"`)) {
+			const fixed = inner.replace(/<text\b[^>]*>/g, (tag) => {
+				if (/\bfill\s*=/.test(tag) || /style="[^"]*\bfill\s*:/i.test(tag)) return tag;
+				return tag.replace(/\s*(\/?)\s*>$/, (whole, slash) => ` fill="${color}"${slash === '/' ? '/>' : '>'}`);
+			});
+			output += source.slice(cursor, innerStart) + fixed;
+			cursor = innerEnd;
+		}
+		openTag.lastIndex = end;
+	}
+	output += source.slice(cursor);
+	return output;
+}
+
 /**
  * 识别「mindmap 节点文本以 mindmap 关键字开头」这一类词法坑。
  * 判据：mindmap 文档 + 解析错误提到 MINDMAP token + 源码里有以 mindmap 开头的节点行。
@@ -138,7 +283,8 @@ export function renderDiagram(source, options) {
 	} catch (error) {
 		throw new Error(describeRenderError(error, source));
 	}
-	const svg = sanitizeSvg(rendered.svg);
+	// classDef/固定填充色会让标签文字在明暗主题下失配，这里统一做一次对比度校正。
+	const svg = ensureNodeLabelContrast(sanitizeSvg(rendered.svg));
 	return {
 		type: rendered.type,
 		mermaidType: rendered.mermaidType,

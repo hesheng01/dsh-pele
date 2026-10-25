@@ -25,6 +25,7 @@
 
 ### 修复
 
+- 夜间模式可读性：节点用 `classDef`/`style` 指定固定填充色时，标签文字会继承主题文字色导致低对比；现按填充色相对亮度自动选择深/浅高对比文字色（作者显式 `color` 不覆盖），对比图见 `deliverables/effect-dark-contrast.png`。
 - 边标签背景：`--pele-bg` 改为映射卡片底色（原先 `transparent` 让 pele 的标签背景矩形失效，连线会从标签文字中间穿过）；对比图见 `deliverables/effect-label-background.png`。
 
 ### 提示与错误
