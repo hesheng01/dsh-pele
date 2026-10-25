@@ -28,6 +28,16 @@
 - **下载 SVG**：主题中立的矢量图（pele 的浅色回退配色），任何查看器都能看清；
 - **下载 PNG**：跟随当前明/暗主题的位图，2x 栅格化，背景取卡片背景 —— 所见即所得。
 
+复杂的图还能在卡片里直接查看：
+
+![卡片内交互查看器：右上角「适应窗口 / 全屏」，底部操作提示](deliverables/effect-viewer.png)
+
+- **滚轮** 上/下：以光标为中心放大 / 缩小；
+- **右键拖动**：平移；
+- **左键拖动**：框选一块区域，松开后把该区域铺满当前窗口；
+- **中键单击 / 双击**：复位（适应窗口）；
+- 右上角 **全屏按钮**：把图铺满当前 DSH 页面（Esc 或右上角 × 退出），全屏里同样支持以上操作（见 `deliverables/effect-fullscreen.png`）。
+
 更多演示：`deliverables/traversal-gallery.png`（33 种图表）、`deliverables/pele-vs-mermaid/`（与 mermaid.js 的对比、渲染过程 GIF）。
 
 ## 目录结构
@@ -37,7 +47,7 @@ dsh-pele/
 ├── plugin/                     # 可安装的 DSH bundle（plugin_manager install_bundle 的目标）
 │   ├── index.js                # Host 半身：pele_draw 工具（渲染/presentationMeta/系统提示/错误诊断）
 │   ├── render.js               # 纯渲染层（vendored pele + 清洗 + 错误信息），可离线单测
-│   ├── client.js               # 浏览器半身：tool.call.toolview（key=pele_draw）内联卡片 + SVG/PNG 下载菜单
+│   ├── client.js               # 浏览器半身：tool.call.toolview（key=pele_draw）内联卡片 + 交互查看器 + SVG/PNG 下载菜单
 │   ├── cordis.patch.yml        # bundle patch：插入 id=pele 的插件行 + 默认 config
 │   ├── package.json            # dsh.bundle.patch + dsh.client(platform=web)
 │   ├── locale/{zh,en}.json     # Plugin Manager 显示元数据
@@ -45,11 +55,11 @@ dsh-pele/
 │   └── vendor/pele.js          # vendored pele 1.10.0 ESM 构建（MIT，见 pele.LICENSE）
 ├── scripts/
 │   ├── selftest.mjs            # 离线渲染自检：23 种图表 + 错误路径（含 mindmap 关键字坑）
-│   ├── card-ssr-test.mjs       # 卡片组件 SSR 测试：注册契约 + 三阶段渲染 + 清洗 + 下载入口
+│   ├── card-ssr-test.mjs       # 卡片组件 SSR 测试：注册契约 + 三阶段渲染 + 清洗 + 下载入口 + 查看器控件
 │   ├── build-gallery.mjs       # 把 33 种遍历结果生成为视觉索引页
 │   └── build-render-demo.mjs   # 「pele vs mermaid.js / 渲染过程」演示页生成
 ├── research/                   # pele API/客户端契约调研、33 种图表语料与遍历报告
-├── deliverables/               # 截图与演示产物（卡片效果、下载菜单、遍历画廊、对比图与 GIF）
+├── deliverables/               # 截图与演示产物（卡片效果、下载菜单、交互查看器、遍历画廊、对比图与 GIF）
 ├── docs/icon-180.png           # 市场卡片图标（180×180 PNG）
 ├── CHANGELOG.md
 └── LICENSE                     # MIT
@@ -93,7 +103,7 @@ pele_draw({
 - 支持 pele 1.10.0 的全部 33 种 Mermaid 12.1 图表类型：flowchart、sequenceDiagram、classDiagram、stateDiagram-v2、erDiagram、gantt、pie、quadrantChart、xychart-beta、mindmap、timeline、journey、gitGraph、sankey-beta、block-beta、packet-beta、kanban、architecture-beta、radar-beta、treemap、info、agentflow、usecase、railroad、treeView、venn、cynefin、wardley、swimlane、ishikawa、eventmodeling、C4、requirementDiagram。
 - 语法错误会返回 Mermaid 行号/列号与片段，模型可自行修正后重试。
 - 卡片跟随 DSH 明/暗主题：pele 的 `--pele-*` 颜色变量映射到 `--dsw-alias-*` 主题 token，同一份 SVG 无需重渲染。
-- 卡片显示：标题/类型、尺寸与体积徽章、SVG；右上角下载菜单提供「下载 SVG」（主题中立的矢量图）与「下载 PNG」（跟随当前明/暗主题、2x 栅格化、背景取卡片背景）。
+- 卡片显示：标题/类型、尺寸与体积徽章、可交互 SVG；右上角下载菜单提供「下载 SVG」（主题中立的矢量图）与「下载 PNG」（跟随当前明/暗主题、2x 栅格化、背景取卡片背景）；图表支持滚轮缩放、右键拖动、左键框选、中键复位与全屏查看。
 
 ## 系统提示（prompt）
 
@@ -118,11 +128,12 @@ pele_draw({
 | 项目 | 结果 | 方式 |
 | --- | --- | --- |
 | 离线渲染自检 | 23/23 通过 + 4 类错误路径 | `node scripts/selftest.mjs` |
-| 卡片组件 SSR 测试 | 13/13 通过（含下载入口/菜单默认关闭/无 SVG 不显示/配色断言） | `node scripts/card-ssr-test.mjs` |
+| 卡片组件 SSR 测试 | 14/14 通过（含下载入口/查看器控件/菜单默认关闭/无 SVG 不显示/配色断言） | `node scripts/card-ssr-test.mjs` |
 | 33 类语料遍历 | 33/33 图表类型成功，0 失败 | `node scripts/build-traversal-report.mjs`（与 `pele_draw` 同一渲染链路），报告见 `research/traversal-report.json` |
 | 渲染结果视觉核验 | 33 种图表全部正确渲染 | `deliverables/traversal-gallery.png`（由 33 个真实 SVG 内联生成） |
 | 客户端注册 | `tool.call.toolview` 中 `pele_draw` 卡片 active | `cordis_inspect_query` 实时查询 |
 | 下载功能（真实浏览器） | 菜单导出 SVG（5.4 KB）与 PNG（1546×312，2x）均成功 | 临时实例中点击卡片下载菜单，校验文件头/尺寸 |
+| 交互查看器（真实浏览器） | 滚轮缩放 / 中键复位 / 右键平移 / 左键框选 / 全屏 + Esc 关闭全部通过 | 临时实例中驱动真实鼠标事件，读取查看器 transform 变化 |
 
 复跑：
 
@@ -149,6 +160,7 @@ npm run demo        # 生成 pele vs mermaid.js 对比页与渲染过程页
 - 下载的 SVG 使用 pele 的浅色回退配色（主题中立，任何查看器都能看清）；PNG 才渲染当前明/暗主题。
 - 会话 Turn 落定后，DSH 会把较早的工具行折叠进 Turn-process 分组（宿主行为，非插件问题）。
 - 同一页面同时出现多张 pele SVG 时，SVG 内部的元素 id（如 `U`/`A`/`D`）可能重复：pele 渲染器不使用我们传入的 `idPrefix`（实测 1.9.0/1.10.0），目前不影响显示，属于记录在案的已知限制。
+- 交互查看器以鼠标操作为主（滚轮缩放、右键拖动、左键框选）；触控板捏合与触屏手势未做专门适配。
 
 ## 许可
 

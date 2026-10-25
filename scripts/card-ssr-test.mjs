@@ -92,6 +92,10 @@ const Zh = {
 	'download.svgHint': '矢量图（主题中立）',
 	'download.pngHint': '位图（当前主题）',
 	'download.failed': '导出失败，请重试',
+	'viewer.hint': '滚轮缩放 · 右键拖动 · 左键框选 · 中键复位',
+	'viewer.fit': '适应窗口',
+	'viewer.fullscreen': '全屏查看',
+	'viewer.exit': '退出全屏',
 };
 const t = (key) => Zh[key] ?? key;
 
@@ -164,8 +168,29 @@ check('result 成功阶段内联 SVG、标题、尺寸/体积与下载入口', (
 	assert.ok(!html.includes('role="menu"'), '菜单默认关闭');
 	assert.ok(!html.includes('/tmp/demo/flowchart.svg'), '不应再有保存路径');
 	assert.ok(html.includes('--pele-fg'), '主题变量');
-	assert.ok(html.includes('max-width:100%'), 'SVG 自适应 max-width');
-	assert.ok(html.includes('height:auto'), 'SVG 自适应 height');
+	assert.ok(html.includes('data-pele-viewer'), '交互查看器容器');
+	assert.ok(html.includes('滚轮缩放'), '查看器操作提示');
+	assert.ok(html.includes('全屏查看'), '全屏按钮');
+	assert.ok(html.includes('适应窗口'), '适应窗口按钮');
+	assert.ok(!html.includes('max-width:100%'), 'SVG max-width 应被剥离（按自然尺寸参与 transform）');
+});
+
+check('交互查看器：工具栏与提示齐全，但全屏层默认不出现', () => {
+	const html = render({
+		phase: 'result',
+		block: {
+			kind: 'tool-result',
+			isError: false,
+			content: [],
+			call: { name: 'pele_draw', argsRaw },
+			meta: okMeta,
+		},
+	});
+	assert.ok(html.includes('data-pele-viewer'), '查看器容器');
+	assert.ok(html.includes('aria-label="全屏查看"'), '全屏按钮可访问名');
+	assert.ok(html.includes('aria-label="适应窗口"'), '适应窗口按钮可访问名');
+	assert.ok(html.includes('中键复位'), '操作提示包含中键复位');
+	assert.ok(!html.includes('data-pele-fullscreen'), '全屏层应默认关闭');
 });
 
 check('result 错误阶段显示 Mermaid 行列号诊断', () => {
@@ -303,8 +328,8 @@ check('非成功阶段不渲染下载入口', () => {
 	assert.ok(!error.includes('data-download="pele-diagram"'), 'error 无下载入口');
 });
 
-check('字典包含下载文案（zh/en 键一致）', () => {
-	for (const key of ['download.button', 'download.svg', 'download.png', 'download.svgHint', 'download.pngHint', 'download.failed']) {
+check('字典包含下载与查看器文案（zh/en 键一致）', () => {
+	for (const key of ['download.button', 'download.svg', 'download.png', 'download.svgHint', 'download.pngHint', 'download.failed', 'viewer.hint', 'viewer.fit', 'viewer.fullscreen', 'viewer.exit']) {
 		assert.ok(typeof Zh[key] === 'string' && Zh[key] !== '', `缺少 ${key}`);
 	}
 	assert.ok(!('card.open' in Zh), 'card.open 应已删除');

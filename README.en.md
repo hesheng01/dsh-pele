@@ -28,6 +28,16 @@ The download button at the card's top-right opens two options:
 - **Download SVG**: a theme-neutral vector image (pele's light fallback colors) that renders everywhere;
 - **Download PNG**: a bitmap that follows the current light/dark theme, rasterized at 2x with the card background — what you see is what you get.
 
+Complex diagrams can also be inspected right in the card:
+
+![In-card interactive viewer: fit / fullscreen at the top-right, gesture hint at the bottom](deliverables/effect-viewer.png)
+
+- **Mouse wheel** up/down: zoom in / out around the cursor;
+- **Right-drag**: pan;
+- **Left-drag**: draw a box; releasing zooms that box to fill the window;
+- **Middle-click / double-click**: reset (fit to window);
+- The **fullscreen button** at the top-right expands the diagram over the current DSH page (Esc or the × closes it), with the same interactions available (see `deliverables/effect-fullscreen.png`).
+
 More demos: `deliverables/traversal-gallery.png` (33 diagram types) and `deliverables/pele-vs-mermaid/` (comparison with mermaid.js, rendering-process GIF).
 
 ## Layout
@@ -37,7 +47,7 @@ dsh-pele/
 ├── plugin/                     # the installable DSH bundle (plugin_manager install_bundle target)
 │   ├── index.js                # Host half: pele_draw tool (render / presentationMeta / prompt / error hints)
 │   ├── render.js               # pure render layer (vendored pele + sanitizing + error messages), unit-testable
-│   ├── client.js               # browser half: tool.call.toolview (key=pele_draw) card + SVG/PNG download menu
+│   ├── client.js               # browser half: tool.call.toolview (key=pele_draw) card + interactive viewer + SVG/PNG download menu
 │   ├── cordis.patch.yml        # bundle patch: inserts the id=pele row + default config
 │   ├── package.json            # dsh.bundle.patch + dsh.client(platform=web)
 │   ├── locale/{zh,en}.json     # Plugin Manager display metadata
@@ -45,11 +55,11 @@ dsh-pele/
 │   └── vendor/pele.js          # vendored pele 1.10.0 ESM build (MIT, see pele.LICENSE)
 ├── scripts/
 │   ├── selftest.mjs            # offline render self-test: 23 diagram types + error paths (incl. mindmap keyword quirk)
-│   ├── card-ssr-test.mjs       # card SSR test: registration contract + three phases + sanitizing + download entry
+│   ├── card-ssr-test.mjs       # card SSR test: registration contract + three phases + sanitizing + download entry + viewer controls
 │   ├── build-gallery.mjs       # builds the visual index page from the 33 traversal results
 │   └── build-render-demo.mjs   # builds the "pele vs mermaid.js / rendering process" demo pages
 ├── research/                   # pele API / client contract research, 33-type corpus and traversal report
-├── deliverables/               # screenshots and demo assets (card showcase, download menu, gallery, comparison, GIF)
+├── deliverables/               # screenshots and demo assets (card showcase, download menu, interactive viewer, gallery, comparison, GIF)
 ├── docs/icon-180.png           # market tile icon (180x180 PNG)
 ├── CHANGELOG.md
 └── LICENSE                     # MIT
@@ -93,7 +103,7 @@ The tool result contains only a summary (type / size / bytes). **The SVG never e
 - Supports all 33 Mermaid 12.1 diagram types of pele 1.10.0: flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, gantt, pie, quadrantChart, xychart-beta, mindmap, timeline, journey, gitGraph, sankey-beta, block-beta, packet-beta, kanban, architecture-beta, radar-beta, treemap, info, agentflow, usecase, railroad, treeView, venn, cynefin, wardley, swimlane, ishikawa, eventmodeling, C4, requirementDiagram.
 - Syntax errors return Mermaid line/column and a snippet so the model can fix and retry.
 - Cards follow the DSH light/dark theme: pele's `--pele-*` color variables are mapped to `--dsw-alias-*` theme tokens, so a single SVG never needs re-rendering.
-- Card contents: title/type, size and byte badges, the SVG, plus a download menu for **Download SVG** (theme-neutral vector) and **Download PNG** (current theme, 2x, card background).
+- Card contents: title/type, size and byte badges, an interactive SVG, plus a download menu for **Download SVG** (theme-neutral vector) and **Download PNG** (current theme, 2x, card background); wheel zoom, right-drag pan, left-drag box zoom, middle-click reset and fullscreen view are supported.
 
 ## System prompt
 
@@ -118,11 +128,12 @@ When `config.prompt` is `true` (default), the plugin injects a `## Diagrams (pel
 | Item | Result | How |
 | --- | --- | --- |
 | Offline render self-test | 23/23 passed + 4 error paths | `node scripts/selftest.mjs` |
-| Card SSR test | 13/13 passed (download entry, closed menu, no-SVG case) | `node scripts/card-ssr-test.mjs` |
+| Card SSR test | 14/14 passed (download entry, viewer controls, closed menu, no-SVG case) | `node scripts/card-ssr-test.mjs` |
 | 33-type corpus traversal | 33/33 diagram types ok, 0 failures | `node scripts/build-traversal-report.mjs` (same render path as `pele_draw`), see `research/traversal-report.json` |
 | Visual check | All 33 diagram types render correctly | `deliverables/traversal-gallery.png` (built from the 33 real SVGs) |
 | Client registration | `pele_draw` card active in `tool.call.toolview` | live `cordis_inspect_query` |
 | Download feature (real browser) | SVG (5.4 KB) and PNG (1546×312, 2x) exported successfully | clicked the card menu in a temporary instance; checked file headers/dimensions |
+| Interactive viewer (real browser) | wheel zoom / middle-click reset / right-drag pan / left-drag box zoom / fullscreen + Esc all pass | drove real mouse events and read the viewer transform in a temporary instance |
 
 Re-run:
 
@@ -149,6 +160,7 @@ npm run demo        # build the pele vs mermaid.js and rendering-process pages
 - Downloaded SVGs use pele's light fallback colors (theme-neutral, visible anywhere); only PNG follows the current light/dark theme.
 - After a turn settles, DSH folds earlier tool rows into the turn-process group (host behavior, not a plugin issue).
 - Multiple pele SVGs on one page can repeat internal element ids (e.g. `U`/`A`/`D`): the renderer ignores our `idPrefix` (verified with 1.9.0/1.10.0). It does not affect display today and is recorded as a known limitation.
+- The interactive viewer targets mouse input (wheel zoom, right-drag pan, left-drag box zoom); trackpad pinch and touch gestures are not specially handled.
 
 ## License
 

@@ -6,6 +6,13 @@
  * 用 dangerouslySetInnerHTML 注入；SVG 本身用 CSS 变量取色（--pele-*），
  * 所以把 DSH 主题 token 映射到这些变量后，同一份 SVG 在明/暗主题下都正确。
  *
+ * 交互查看器（本版本新增）：
+ *   - 滚轮上/下 = 以光标为中心放大/缩小；
+ *   - 右键拖动 = 平移；
+ *   - 左键拖动 = 框选，松开后把框选区域铺满当前查看窗口；
+ *   - 中键单击 / 双击 = 复位（适应窗口）；
+ *   - 卡片右上角的全屏按钮 = 在当前 DSH 页面里全屏查看（Esc 退出），功能一致。
+ *
  * 卡片右上角的下载按钮提供两种导出：
  *   - SVG：直接导出 Host 渲染的原始 SVG（主题中立，用 pele 的浅色回退变量，任何地方都可见）；
  *   - PNG：把当前页面上实际渲染的 SVG（含当前明/暗主题颜色）栅格化，背景取卡片背景，
@@ -40,6 +47,10 @@ window.__ModuleLoader__.load({
 			'download.svgHint': '矢量图（主题中立）',
 			'download.pngHint': '位图（当前主题）',
 			'download.failed': '导出失败，请重试',
+			'viewer.hint': '滚轮缩放 · 右键拖动 · 左键框选 · 中键复位',
+			'viewer.fit': '适应窗口',
+			'viewer.fullscreen': '全屏查看',
+			'viewer.exit': '退出全屏',
 		};
 
 		/** English dictionary（键集合与 zh 一致）。 */
@@ -58,6 +69,10 @@ window.__ModuleLoader__.load({
 			'download.svgHint': 'Vector, theme-neutral',
 			'download.pngHint': 'Bitmap, current theme',
 			'download.failed': 'Export failed, please retry',
+			'viewer.hint': 'Wheel to zoom · right-drag to pan · left-drag to box-zoom · middle-click to reset',
+			'viewer.fit': 'Fit to window',
+			'viewer.fullscreen': 'View fullscreen',
+			'viewer.exit': 'Exit fullscreen',
 		};
 
 		/**
@@ -114,12 +129,53 @@ window.__ModuleLoader__.load({
 			color: 'var(--dsw-alias-label-secondary)',
 		};
 
-		/** 图表主体容器：限高 + 允许横向滚动。 */
+		/** 非图表状态的正文容器（错误/空数据等）。 */
 		const BODY_STYLE = {
 			padding: '12px 14px',
 			borderTop: '1px solid var(--dsw-alias-border-l1)',
 			maxHeight: 560,
 			overflow: 'auto',
+		};
+
+		/** 交互查看器外框（图表主体）。 */
+		const VIEWER_STYLE = {
+			position: 'relative',
+			borderTop: '1px solid var(--dsw-alias-border-l1)',
+			overflow: 'hidden',
+			background: 'var(--dsw-alias-bg-layer-1)',
+			cursor: 'grab',
+			userSelect: 'none',
+		};
+
+		/** 查看器浮层工具栏。 */
+		const TOOLBAR_STYLE = {
+			position: 'absolute',
+			top: 8,
+			right: 8,
+			display: 'flex',
+			gap: 6,
+			padding: 4,
+			borderRadius: 8,
+			background: 'color-mix(in srgb, var(--dsw-alias-bg-layer-1) 88%, transparent)',
+			border: '1px solid var(--dsw-alias-border-l1)',
+			backdropFilter: 'blur(4px)',
+		};
+
+		/** 查看器底部操作提示。 */
+		const HINT_STYLE = {
+			position: 'absolute',
+			left: 8,
+			bottom: 6,
+			fontSize: 10,
+			lineHeight: '14px',
+			color: 'var(--dsw-alias-label-secondary)',
+			opacity: 0.72,
+			pointerEvents: 'none',
+			userSelect: 'none',
+			maxWidth: '78%',
+			overflow: 'hidden',
+			whiteSpace: 'nowrap',
+			textOverflow: 'ellipsis',
 		};
 
 		/** Pele 图标（与插件 icon.svg 同源的 16px 版本）。 */
@@ -166,6 +222,48 @@ window.__ModuleLoader__.load({
 					strokeWidth: 1.4,
 					strokeLinecap: 'round',
 				}),
+			);
+		}
+
+		/** 全屏图标（14px 线性四角）。 */
+		function FullscreenGlyph() {
+			return h(
+				'svg',
+				{ width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, style: { display: 'block' } },
+				h('path', {
+					d: 'M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10',
+					fill: 'none',
+					stroke: 'currentColor',
+					strokeWidth: 1.4,
+					strokeLinecap: 'round',
+					strokeLinejoin: 'round',
+				}),
+			);
+		}
+
+		/** 适应窗口图标（14px 线性：外角 + 中间方框）。 */
+		function FitGlyph() {
+			return h(
+				'svg',
+				{ width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, style: { display: 'block' } },
+				h('path', {
+					d: 'M2.5 6.5V3h3.5M10 3h3.5v3.5M13.5 9.5V13H10M6 13H2.5V9.5',
+					fill: 'none',
+					stroke: 'currentColor',
+					strokeWidth: 1.3,
+					strokeLinecap: 'round',
+					strokeLinejoin: 'round',
+				}),
+				h('rect', { x: 5.5, y: 5.5, width: 5, height: 5, rx: 1, fill: 'none', stroke: 'currentColor', strokeWidth: 1.1 }),
+			);
+		}
+
+		/** 关闭图标（14px 线性 X）。 */
+		function CloseGlyph() {
+			return h(
+				'svg',
+				{ width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, style: { display: 'block' } },
+				h('path', { d: 'M4 4l8 8M12 4l-8 8', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' }),
 			);
 		}
 
@@ -219,6 +317,14 @@ window.__ModuleLoader__.load({
 				.replace(/\s(?:xlink:href|href)\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*')/gi, '');
 		}
 
+		/**
+		 * 查看器需要「按自然尺寸参与 transform」的 SVG：去掉根节点上的
+		 * max-width:100% / height:auto，避免浏览器先把图缩到容器宽度。
+		 */
+		function stripSvgSizing(svg) {
+			return svg.replace(/max-width:100%;?/gi, '').replace(/height:auto;?/gi, '');
+		}
+
 		/** 字节数格式化。 */
 		function formatBytes(bytes) {
 			if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '';
@@ -248,6 +354,11 @@ window.__ModuleLoader__.load({
 			anchor.click();
 			anchor.remove();
 			setTimeout(() => URL.revokeObjectURL(url), 1000);
+		}
+
+		/** 数值夹紧。 */
+		function clampNumber(value, min, max) {
+			return Math.min(max, Math.max(min, value));
 		}
 
 		/** 头部右侧的尺寸/体积小徽章。 */
@@ -289,6 +400,236 @@ window.__ModuleLoader__.load({
 			);
 		}
 
+		/** 查看器工具栏上的小图标按钮。 */
+		function IconButton({ label, onClick, children }) {
+			return h(
+				'button',
+				{
+					type: 'button',
+					title: label,
+					'aria-label': label,
+					onMouseDown: (event) => event.stopPropagation(),
+					onClick,
+					style: {
+						display: 'inline-flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						width: 26,
+						height: 26,
+						padding: 0,
+						border: '1px solid var(--dsw-alias-border-l1)',
+						borderRadius: 6,
+						background: 'transparent',
+						color: 'var(--dsw-alias-label-secondary)',
+						cursor: 'pointer',
+					},
+				},
+				children,
+			);
+		}
+
+		/**
+		 * 交互式图表查看器：滚轮缩放、右键拖动、左键框选放大、中键/双击复位。
+		 * 全屏时由调用方把它放进固定定位的容器（工具条提供退出按钮）。
+		 *
+		 * @param props.svg - 已清洗的 SVG 字符串（按自然尺寸参与 transform）。
+		 * @param props.width - 图表自然宽度（px）。
+		 * @param props.height - 图表自然高度（px）。
+		 * @param props.heightPx - 卡片内查看器高度；全屏时由容器撑满。
+		 * @param props.t - 翻译函数。
+		 * @param props.fullscreen - 是否处于全屏叠加层。
+		 * @param props.onFullscreen - 点全屏按钮时的回调（不传则不显示全屏按钮）。
+		 * @param props.onClose - 全屏时点关闭按钮的回调。
+		 */
+		function DiagramViewer(props) {
+			const { svg, width, height, heightPx, t, fullscreen = false, onFullscreen, onClose } = props;
+			const hostRef = React.useRef(null);
+			const marqueeRef = React.useRef(null);
+			const dragRef = React.useRef(null);
+			const interactedRef = React.useRef(false);
+			const [view, setView] = React.useState(null);
+			const [marquee, setMarquee] = React.useState(null);
+
+			/** 计算「适应窗口」的缩放与位置。 */
+			const fit = React.useCallback(() => {
+				const host = hostRef.current;
+				if (host === null) return;
+				const cw = host.clientWidth;
+				const ch = host.clientHeight;
+				if (cw === 0 || ch === 0) return;
+				const scale = Math.min(cw / width, ch / height) * 0.98;
+				setView({ scale, x: (cw - width * scale) / 2, y: (ch - height * scale) / 2 });
+			}, [width, height]);
+
+			// 首次挂载 / 容器尺寸变化时适应窗口（用户手动操作过之后不再打扰）。
+			React.useEffect(() => {
+				if (view === null) fit();
+			}, [view, fit]);
+			React.useEffect(() => {
+				const host = hostRef.current;
+				if (host === null || typeof ResizeObserver === 'undefined') return undefined;
+				const observer = new ResizeObserver(() => {
+					if (!interactedRef.current) fit();
+				});
+				observer.observe(host);
+				return () => observer.disconnect();
+			}, [fit]);
+
+			// 滚轮缩放：用原生监听以便 preventDefault（React 的 onWheel 是 passive）。
+			React.useEffect(() => {
+				const host = hostRef.current;
+				if (host === null) return undefined;
+				const onWheel = (event) => {
+					event.preventDefault();
+					interactedRef.current = true;
+					const rect = host.getBoundingClientRect();
+					const mx = event.clientX - rect.left;
+					const my = event.clientY - rect.top;
+					setView((current) => {
+						const base = current ?? { scale: 1, x: 0, y: 0 };
+						const factor = Math.exp(-event.deltaY * 0.0015);
+						const scale = clampNumber(base.scale * factor, 0.01, 60);
+						const ratio = scale / base.scale;
+						return { scale, x: mx - (mx - base.x) * ratio, y: my - (my - base.y) * ratio };
+					});
+				};
+				host.addEventListener('wheel', onWheel, { passive: false });
+				return () => host.removeEventListener('wheel', onWheel);
+			}, []);
+
+			// 拖动过程中的全局 mousemove / mouseup（框选与平移共用）。
+			React.useEffect(() => {
+				const onMove = (event) => {
+					const drag = dragRef.current;
+					const host = hostRef.current;
+					if (drag === null || host === null) return;
+					const rect = host.getBoundingClientRect();
+					const px = clampNumber(event.clientX - rect.left, 0, rect.width);
+					const py = clampNumber(event.clientY - rect.top, 0, rect.height);
+					if (drag.mode === 'pan') {
+						setView((current) => (current === null ? current : { ...current, x: drag.x + (px - drag.px), y: drag.y + (py - drag.py) }));
+						return;
+					}
+					const next = {
+						x: Math.min(drag.px, px),
+						y: Math.min(drag.py, py),
+						w: Math.abs(px - drag.px),
+						h: Math.abs(py - drag.py),
+					};
+					marqueeRef.current = next;
+					setMarquee(next);
+				};
+				const onUp = () => {
+					const drag = dragRef.current;
+					dragRef.current = null;
+					if (drag !== null && drag.mode === 'box') {
+						const box = marqueeRef.current;
+						marqueeRef.current = null;
+						setMarquee(null);
+						const host = hostRef.current;
+						if (box !== null && host !== null && box.w > 6 && box.h > 6) {
+							interactedRef.current = true;
+							setView((current) => {
+								if (current === null) return current;
+								const cw = host.clientWidth;
+								const ch = host.clientHeight;
+								const scale = clampNumber(Math.min(cw / box.w, ch / box.h) * 0.98, 0.01, 60);
+								// 框选区域中心在图表坐标系里的位置 → 让它在视口中居中。
+								const centerX = (box.x + box.w / 2 - current.x) / current.scale;
+								const centerY = (box.y + box.h / 2 - current.y) / current.scale;
+								return { scale, x: cw / 2 - centerX * scale, y: ch / 2 - centerY * scale };
+							});
+						}
+					}
+				};
+				window.addEventListener('mousemove', onMove);
+				window.addEventListener('mouseup', onUp);
+				return () => {
+					window.removeEventListener('mousemove', onMove);
+					window.removeEventListener('mouseup', onUp);
+				};
+			}, []);
+
+			const onMouseDown = (event) => {
+				if (event.button === 1) {
+					// 中键：复位。
+					event.preventDefault();
+					interactedRef.current = false;
+					fit();
+					return;
+				}
+				const host = hostRef.current;
+				if (host === null) return;
+				const rect = host.getBoundingClientRect();
+				const px = event.clientX - rect.left;
+				const py = event.clientY - rect.top;
+				if (event.button === 2) {
+					event.preventDefault();
+					dragRef.current = { mode: 'pan', px, py, x: view === null ? 0 : view.x, y: view === null ? 0 : view.y };
+					return;
+				}
+				if (event.button === 0) {
+					event.preventDefault();
+					dragRef.current = { mode: 'box', px, py };
+					marqueeRef.current = { x: px, y: py, w: 0, h: 0 };
+					setMarquee(marqueeRef.current);
+				}
+			};
+
+			const viewerHeight = fullscreen ? '100%' : heightPx;
+			const transform = view === null ? 'none' : `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+
+			return h(
+				'div',
+				{
+					ref: hostRef,
+					'data-pele-viewer': '',
+					style: { ...VIEWER_STYLE, ...THEME_VARS, height: viewerHeight },
+					onMouseDown,
+					onContextMenu: (event) => event.preventDefault(),
+					onDoubleClick: () => {
+						interactedRef.current = false;
+						fit();
+					},
+				},
+				h('div', {
+					style: { position: 'absolute', left: 0, top: 0, transform, transformOrigin: '0 0', willChange: 'transform' },
+					dangerouslySetInnerHTML: { __html: svg },
+				}),
+				marquee === null
+					? null
+					: h('div', {
+							style: {
+								position: 'absolute',
+								left: marquee.x,
+								top: marquee.y,
+								width: marquee.w,
+								height: marquee.h,
+								border: '1px dashed var(--dsw-alias-brand-primary)',
+								background: 'color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)',
+								pointerEvents: 'none',
+							},
+						}),
+				h(
+					'div',
+					{ style: TOOLBAR_STYLE },
+					h(IconButton, {
+						label: t('viewer.fit'),
+						onClick: () => {
+							interactedRef.current = false;
+							fit();
+						},
+					}, h(FitGlyph, {})),
+					fullscreen
+						? h(IconButton, { label: t('viewer.exit'), onClick: onClose }, h(CloseGlyph, {}))
+						: onFullscreen === undefined
+							? null
+							: h(IconButton, { label: t('viewer.fullscreen'), onClick: onFullscreen }, h(FullscreenGlyph, {})),
+				),
+				h('div', { style: HINT_STYLE }, t('viewer.hint')),
+			);
+		}
+
 		/**
 		 * 右上角下载按钮 + 下拉菜单（SVG / PNG）。
 		 *
@@ -300,7 +641,6 @@ window.__ModuleLoader__.load({
 			const [hovered, setHovered] = React.useState(null);
 			const [failed, setFailed] = React.useState(false);
 			const wrapRef = React.useRef(null);
-			const bodyRef = React.useRef(null);
 
 			React.useEffect(() => {
 				if (!open) return undefined;
@@ -334,9 +674,9 @@ window.__ModuleLoader__.load({
 			const savePng = async () => {
 				setOpen(false);
 				try {
-					// 找到卡片主体里已经渲染的那份 SVG（拿当前主题的计算值）。
+					// 找到卡片里查看器已经渲染的那份 SVG（拿当前主题的计算值）。
 					const card = wrapRef.current === null ? null : wrapRef.current.closest('[data-tool="pele_draw"]');
-					const host = card === null ? null : card.querySelector('[data-pele-body]');
+					const host = card === null ? null : card.querySelector('[data-pele-viewer]');
 					const svgEl = host === null ? null : host.querySelector('svg');
 					if (svgEl === null) throw new Error('rendered SVG not found');
 
@@ -527,6 +867,8 @@ window.__ModuleLoader__.load({
 						: 'ok';
 
 			const svg = state === 'ok' ? sanitizeSvg(meta?.svg) : undefined;
+			const viewerWidth = typeof meta?.width === 'number' && meta.width > 0 ? Math.round(meta.width) : 800;
+			const viewerHeight = typeof meta?.height === 'number' && meta.height > 0 ? Math.round(meta.height) : 600;
 			const typeLabel = typeof meta?.mermaidType === 'string'
 				? meta.mermaidType
 				: typeof meta?.type === 'string'
@@ -543,6 +885,23 @@ window.__ModuleLoader__.load({
 				? resultText(block) || t(state === 'stopped' ? 'card.stopped' : 'card.failed')
 				: '';
 			const baseName = downloadName(title, meta?.type ?? typeLabel);
+			const [fullscreen, setFullscreen] = React.useState(false);
+
+			// 全屏时锁滚动 + Esc 退出。
+			React.useEffect(() => {
+				if (!fullscreen) return undefined;
+				const onKeyDown = (event) => {
+					if (event.key === 'Escape') setFullscreen(false);
+				};
+				window.addEventListener('keydown', onKeyDown);
+				const body = document.body;
+				const previous = body.style.overflow;
+				body.style.overflow = 'hidden';
+				return () => {
+					window.removeEventListener('keydown', onKeyDown);
+					body.style.overflow = previous;
+				};
+			}, [fullscreen]);
 
 			const header = h(
 				'div',
@@ -598,10 +957,15 @@ window.__ModuleLoader__.load({
 					),
 				);
 			} else if (svg !== undefined) {
-				body = h('div', {
-					'data-pele-body': '',
-					style: { ...BODY_STYLE, ...THEME_VARS, display: 'flex', justifyContent: 'center' },
-					dangerouslySetInnerHTML: { __html: svg },
+				// 卡片内查看器高度：小图给足留白，大图封顶 560，交互查看器负责缩放。
+				const viewportHeight = Math.min(560, Math.max(220, viewerHeight));
+				body = h(DiagramViewer, {
+					svg: stripSvgSizing(svg),
+					width: viewerWidth,
+					height: viewerHeight,
+					heightPx: viewportHeight,
+					t,
+					onFullscreen: () => setFullscreen(true),
 				});
 			} else {
 				body = h(
@@ -613,7 +977,62 @@ window.__ModuleLoader__.load({
 				);
 			}
 
-			return h('div', { style: CARD_STYLE, 'data-tool': 'pele_draw', 'data-state': state }, header, body);
+			const card = h('div', { style: CARD_STYLE, 'data-tool': 'pele_draw', 'data-state': state }, header, body);
+
+			// 全屏叠加层：固定定位覆盖整个 DSH 页面（Esc / 关闭按钮退出）。
+			const overlay = fullscreen && svg !== undefined
+				? h(
+						'div',
+						{
+							'data-pele-fullscreen': '',
+							style: {
+								position: 'fixed',
+								inset: 0,
+								zIndex: 9999,
+								display: 'flex',
+								flexDirection: 'column',
+								background: 'var(--dsw-alias-bg-layer-1)',
+							},
+						},
+						h(
+							'div',
+							{
+								style: {
+									display: 'flex',
+									alignItems: 'center',
+									gap: 8,
+									padding: '10px 14px',
+									borderBottom: '1px solid var(--dsw-alias-border-l1)',
+									fontSize: 13,
+									color: 'var(--dsw-alias-label-primary)',
+								},
+							},
+							h(PeleGlyph, {}),
+							h('span', { style: { fontWeight: 600 } }, t('card.title')),
+							h('span', { style: { opacity: 0.5 } }, '·'),
+							h(
+								'span',
+								{ style: { flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+								summary,
+							),
+							h(IconButton, { label: t('viewer.exit'), onClick: () => setFullscreen(false) }, h(CloseGlyph, {})),
+						),
+						h(
+							'div',
+							{ style: { flex: '1 1 auto', minHeight: 0 } },
+							h(DiagramViewer, {
+								svg: stripSvgSizing(svg),
+								width: viewerWidth,
+								height: viewerHeight,
+								fullscreen: true,
+								t,
+								onClose: () => setFullscreen(false),
+							}),
+						),
+					)
+				: null;
+
+			return h(React.Fragment, null, card, overlay);
 		}
 
 		/** 客户端入口：注册字典与 `pele_draw` 的 keyed tool view。 */
