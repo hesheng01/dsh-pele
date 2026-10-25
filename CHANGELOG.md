@@ -23,6 +23,10 @@
 - 卡片右上角全屏按钮：把图铺满当前 DSH 页面（Esc / 关闭按钮退出），全屏中同样支持缩放、拖动与框选。
 - 新增 `deliverables/effect-viewer.png` 与 `deliverables/effect-fullscreen.png` 展示查看器与全屏效果。
 
+### 修复
+
+- 边标签背景：`--pele-bg` 改为映射卡片底色（原先 `transparent` 让 pele 的标签背景矩形失效，连线会从标签文字中间穿过）；对比图见 `deliverables/effect-label-background.png`。
+
 ### 提示与错误
 
 - 系统提示注入 `## 图表（pele_draw）`，并同步更新工具 description；工具对某 Agent 不可见时提示为空。

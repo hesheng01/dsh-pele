@@ -81,7 +81,10 @@ window.__ModuleLoader__.load({
 		 * 因此在容器上覆盖 --pele-* 就能让图表跟随 Harness 的明/暗主题。
 		 */
 		const THEME_VARS = {
-			'--pele-bg': 'transparent',
+			// 边标签背景：pele 给每个边标签画了一个 fill=var(--_bg) 的圆角矩形。
+			// 若 --pele-bg 设成 transparent，这个遮罩就消失，连线会从标签文字中间穿过；
+			// 设成卡片底色既与卡片背景一致，又能正确遮住标签下方的连线。
+			'--pele-bg': 'var(--dsw-alias-bg-layer-1)',
 			// 文字也混入蓝调（而不是纯黑/纯灰）：浅色主题下是深蓝，深色主题下是浅蓝，可读性不变。
 			'--pele-fg': 'color-mix(in srgb, #3b82f6 42%, var(--dsw-alias-label-primary))',
 			'--pele-muted': 'color-mix(in srgb, #3b82f6 38%, var(--dsw-alias-label-secondary))',

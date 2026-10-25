@@ -38,6 +38,10 @@
 - **中键单击 / 双击**：复位（适应窗口）；
 - 右上角 **全屏按钮**：把图铺满当前 DSH 页面（Esc 或右上角 × 退出），全屏里同样支持以上操作（见 `deliverables/effect-fullscreen.png`）。
 
+边标签背景修复对比（上：`--pele-bg: transparent`，连线穿过文字；下：卡片底色，标签正确遮挡连线）：
+
+![边标签背景修复前后对比](deliverables/effect-label-background.png)
+
 更多演示：`deliverables/traversal-gallery.png`（33 种图表）、`deliverables/pele-vs-mermaid/`（与 mermaid.js 的对比、渲染过程 GIF）。
 
 ## 目录结构
@@ -147,7 +151,7 @@ npm run demo        # 生成 pele vs mermaid.js 对比页与渲染过程页
 ## 实现要点
 
 1. **为什么 SVG 走 `presentationMeta`**：SVG 通常几 KB～几十 KB，直接进模型上下文会浪费 token 且干扰推理；`meta` 只持久化在会话事件上供 Client 渲染器读取。`output.schema` 里保留 `svg` 字段作为 canonical 值的一部分，`render()` 只输出摘要。
-2. **主题**：pele 的 SVG 全部用 `var(--_x)` → `var(--pele-x, 回退)` 取色；卡片在容器上覆盖 `--pele-*` 为 `--dsw-alias-*`，明暗主题自动跟随，无需重渲染。
+2. **主题**：pele 的 SVG 全部用 `var(--_x)` → `var(--pele-x, 回退)` 取色；卡片在容器上覆盖 `--pele-*` 为 `--dsw-alias-*`，明暗主题自动跟随，无需重渲染。其中 `--pele-bg` 必须映射为**卡片底色**而不是 transparent：pele 给每个边标签画了 `fill=var(--_bg)` 的背景矩形，透明会让连线从标签文字中间穿过（对比见 `deliverables/effect-label-background.png`）。
 3. **安全**：Host 与 Client 各做一次清洗（去除 `<script>`/`<foreignObject>`/内联事件/`javascript:` 链接）；Client 要求 SVG 以 `<svg` 开头且 ≤600KB；插件不写工作区文件，导出只在浏览器端由用户点击触发。
 4. **下载**：SVG 直接导出 Host 渲染的原始 SVG；PNG 先在浏览器里克隆当前渲染的 `<svg>`，把继承来的主题 CSS 变量固化成内联值，再按 2x（超长边/超面积自动降级）画到 canvas，背景取卡片背景色。
 5. **确定性**：每张图用源码 sha1 生成 `idPrefix`（注意：pele 渲染输出实际不使用它，同页多图内部 id 可能重复，见已知限制）。

@@ -168,6 +168,8 @@ check('result 成功阶段内联 SVG、标题、尺寸/体积与下载入口', (
 	assert.ok(!html.includes('role="menu"'), '菜单默认关闭');
 	assert.ok(!html.includes('/tmp/demo/flowchart.svg'), '不应再有保存路径');
 	assert.ok(html.includes('--pele-fg'), '主题变量');
+	assert.ok(html.includes('--pele-bg:var(--dsw-alias-bg-layer-1)'), '边标签背景应为卡片底色（不是 transparent）');
+	assert.ok(!html.includes('--pele-bg:transparent'), '--pele-bg 不应是 transparent');
 	assert.ok(html.includes('data-pele-viewer'), '交互查看器容器');
 	assert.ok(html.includes('滚轮缩放'), '查看器操作提示');
 	assert.ok(html.includes('全屏查看'), '全屏按钮');

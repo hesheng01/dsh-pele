@@ -38,6 +38,10 @@ Complex diagrams can also be inspected right in the card:
 - **Middle-click / double-click**: reset (fit to window);
 - The **fullscreen button** at the top-right expands the diagram over the current DSH page (Esc or the × closes it), with the same interactions available (see `deliverables/effect-fullscreen.png`).
 
+Edge-label background fix (top: `--pele-bg: transparent`, lines cut through the text; bottom: card background, labels mask the lines):
+
+![Edge label background before/after](deliverables/effect-label-background.png)
+
 More demos: `deliverables/traversal-gallery.png` (33 diagram types) and `deliverables/pele-vs-mermaid/` (comparison with mermaid.js, rendering-process GIF).
 
 ## Layout
@@ -147,7 +151,7 @@ npm run demo        # build the pele vs mermaid.js and rendering-process pages
 ## Implementation notes
 
 1. **Why the SVG goes through `presentationMeta`**: SVGs are usually a few KB to tens of KB; putting them into the model context would waste tokens and disturb reasoning. `meta` is persisted on the session event for the client renderer only. The canonical value keeps an `svg` field, while `render()` emits just the summary.
-2. **Theming**: pele SVGs take every color from `var(--_x)` → `var(--pele-x, fallback)`. The card overrides `--pele-*` with `--dsw-alias-*` on its container, so light/dark themes apply without re-rendering.
+2. **Theming**: pele SVGs take every color from `var(--_x)` → `var(--pele-x, fallback)`. The card overrides `--pele-*` with `--dsw-alias-*` on its container, so light/dark themes apply without re-rendering. In particular `--pele-bg` must map to the **card background**, not `transparent`: pele paints a `fill=var(--_bg)` rectangle behind every edge label, and a transparent value lets connector lines run through the label text (see the before/after in `deliverables/effect-label-background.png`).
 3. **Security**: both Host and Client sanitize the SVG (strip `<script>` / `<foreignObject>` / inline events / `javascript:` links); the Client requires the string to start with `<svg` and stay under 600 KB; the plugin writes no files — export only happens in the browser, triggered by the user.
 4. **Download**: SVG exports the original SVG rendered by the Host. PNG clones the currently rendered `<svg>` in the browser, bakes the inherited theme CSS variables into inline values, and draws it to a canvas at 2x (falling back for huge edge/area sizes); the background is the card background.
 5. **Determinism**: every diagram gets a `sha1`-derived `idPrefix` (note: pele's render output does not use it in 1.9/1.10, so duplicate element ids are possible on one page — see limitations).
