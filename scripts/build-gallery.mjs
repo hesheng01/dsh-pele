@@ -76,7 +76,7 @@ const html = `<!doctype html>
 </head>
 <body>
 <header>
-  <h1>dsh-pele · pele 1.10.0 · 33 种 Mermaid 图表遍历</h1>
+  <h1>dsh-pele · pele 1.12.0 · 33 种 Mermaid 图表遍历</h1>
   <p class="lead">33/33 成功，0 失败。每张图均由 Host 端 <code>pele_draw</code> 工具真实渲染并落盘，此处为原始 SVG 内联预览（会话卡片使用同一份 SVG + 主题变量）。</p>
 </header>
 <div class="grid">

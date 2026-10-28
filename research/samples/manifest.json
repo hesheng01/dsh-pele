@@ -1,6 +1,6 @@
 {
-  "pele": "1.10.0",
-  "node": "v26.12.1",
+  "pele": "1.12.0",
+  "node": "v22.15.0",
   "generatedBy": "scripts/build-traversal-report.mjs",
   "samples": [
     {

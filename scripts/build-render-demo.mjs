@@ -106,7 +106,7 @@ const page = (title, body, extra = '') => `<!doctype html><html lang="zh-CN"><he
 const compare = page(
 	'pele 图表：pele vs mermaid.js',
 	`<h1>通过 pele 图表看 pele 与 mermaid.js 的区别</h1>
-<p class="lead">下面三张图全部由 pele 渲染（与 dsh-pele 插件 Host 半身同一份 vendored pele 1.10.0）。左边是同一份 Mermaid 语法的两条渲染路线，中间是体积对比，右边是定位取舍。</p>
+<p class="lead">下面三张图全部由 pele 渲染（与 dsh-pele 插件 Host 半身同一份 vendored pele 1.12.0）。左边是同一份 Mermaid 语法的两条渲染路线，中间是体积对比，右边是定位取舍。</p>
 <div class="grid" style="grid-template-columns:1.55fr 1fr 1fr">
   <div class="panel"><h2>① 同一份 Mermaid 语法，两种渲染器 <span>flowchart · ${flow.width}×${flow.height}</span></h2><div class="canvas">${fluid(flow.svg)}</div></div>
   <div class="panel"><h2>② 打包体积（KB） <span>xychart · bar=原始 / line=gzip</span></h2><div class="canvas">${fluid(xy.svg)}</div></div>
@@ -115,7 +115,7 @@ const compare = page(
 <div class="panel" style="margin-top:16px">
   <h2>差异对照 <span>同样是「把 Mermaid 源码变成图」</span></h2>
   <table>
-    <tr><th style="width:130px">维度</th><th>pele 1.10.0（本插件）</th><th>mermaid.js 11.17.2（官方）</th></tr>
+    <tr><th style="width:130px">维度</th><th>pele 1.12.0（本插件）</th><th>mermaid.js 11.17.2（官方）</th></tr>
     <tr><td>是什么</td><td>把 <b>Mermaid 语法</b>渲染成 SVG 的一个<b>轻量渲染器实现</b>（自己解析+排版+出图）</td><td>Mermaid 语法的<b>官方渲染器</b>，也是整个 Mermaid 生态的参考实现</td></tr>
     <tr><td>体积</td><td><b>685 KB</b>（gzip 256 KB），零运行时依赖</td><td><b>3.4 MB</b>（gzip 958 KB）</td></tr>
     <tr><td>运行环境</td><td><b>同步</b>，不需要 DOM：Node 里可直接渲染（本插件就这么用：在 Host 端出 SVG 交给卡片）</td><td>需要浏览器 DOM 度量文本，<b>异步</b> <code>render()</code></td></tr>

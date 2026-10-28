@@ -178,6 +178,10 @@ function findGroupEnd(svg, fromIndex) {
  * 给「显式填充色」的节点标签注入高对比文字色，修掉夜间模式下的低对比度问题。
  * 渲染结果里节点的 classDef 颜色会编译成 rect 的行内 style（如 fill:#fecaca），
  * 而标签 text 没有自己的 fill，会继承根 <svg fill="var(--_fg)"> —— 主题一变就失配。
+ *
+ * 注意：pele 1.12.0 起已原生处理该问题（标签写成 fill="var(--pele-fg-on-light,#1f1f1f)" /
+ * fill="var(--pele-fg-on-dark,#fff)"，并覆盖边与箭头），此时本函数不会重复注入；
+ * 保留它作为旧版本/上游回退时的兜底。
  * @param svg - 已清理的 SVG 字符串。
  * @returns 注入文字色后的 SVG（没有需要处理的节点时原样返回）。
  */
@@ -276,8 +280,9 @@ export function describeRenderError(error, source) {
 export function renderDiagram(source, options) {
 	let rendered;
 	try {
-		// idPrefix 仍传给 pele（它为未来版本/交互渲染预留），但实测 1.9–1.10 的 SVG 输出不使用它；
-		// 同页多图时 SVG 内部 id（如 U/A/D）理论上可能冲突，属于已知限制（见 README）。
+		// idPrefix 仍传给 pele（它为未来版本/交互渲染预留），但实测 1.9–1.12 的 SVG 输出
+		// 不使用它作为元素 id（只有 sankey 渐变等少数地方会用到）；同页多图时 SVG 内部 id
+		// （如 U/A/D）理论上可能冲突，属于已知限制（见 README）。
 		const idPrefix = `pele-${createHash('sha1').update(source).digest('hex').slice(0, 8)}`;
 		rendered = render(source, { ...RENDER_OPTIONS, idPrefix, ...options });
 	} catch (error) {

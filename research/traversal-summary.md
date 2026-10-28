@@ -1,7 +1,7 @@
 # Pele 33 种 Mermaid 图表遍历摘要
 
 - 生成方式：`node scripts/build-traversal-report.mjs`（与 `pele_draw` 工具同一渲染链路 `plugin/render.js`）。
-- 渲染器：vendored pele **1.10.0**，Node v26.12.1。
+- 渲染器：vendored pele **1.12.0**，Node v22.15.0。
 - 遍历结果：**33/33 成功**，失败 0 项；SVG 已写入 `research/samples/`。
 - 字节数取自实际 SVG 文件，尺寸取自渲染结果。
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-pele",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "用 pele（Mermaid → SVG）在 DSH 会话中绘图：pele_draw 工具 + 内联图表卡片",
   "author": "Hesheng (hesheng01)",
   "homepage": "https://github.com/hesheng01/dsh-pele#readme",

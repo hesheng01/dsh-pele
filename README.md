@@ -11,7 +11,8 @@
 用 [pele](https://github.com/obsidianmd/pele)（Mermaid → SVG 渲染器）在 **DeepSeek Harness（DSH）** 会话里绘图：模型调用工具 `pele_draw` 提交 Mermaid 源码，Host 端用 pele 把图渲染成 SVG（不占模型上下文），Web 会话里由客户端插件把该工具调用渲染成**内联图表卡片**；卡片右上角可把图下载为 **SVG** 或 **PNG**，不写工作区文件。
 
 - 目标 profile：`web`（DSH 0.2.1-rc.2）
-- 版本：**0.1.1**（开源版本；尚未发布到 npm，可用本地目录或 Git 仓库安装）
+- 版本：**0.1.2**（开源版本；尚未发布到 npm，可用本地目录或 Git 仓库安装）
+- 0.1.2 变更：查看器改为**点击激活**（未激活时悬停滚轮照常滚动页面）、放大按矢量重绘不再发糊、vendored pele 升级至 **1.12.0**（明细见 [CHANGELOG.md](CHANGELOG.md)）
 - 仓库：<https://github.com/hesheng01/dsh-pele>
 - 纯 JS、无构建步骤、无运行时 npm 依赖（pele 以 MIT 许可 vendored 在 `plugin/vendor/`）
 
@@ -28,11 +29,11 @@
 - **下载 SVG**：主题中立的矢量图（pele 的浅色回退配色），任何查看器都能看清；
 - **下载 PNG**：跟随当前明/暗主题的位图，2x 栅格化，背景取卡片背景 —— 所见即所得。
 
-复杂的图还能在卡片里直接查看：
+复杂的图还能在卡片里直接查看（**点击图表后才进入交互**：未激活时鼠标停在卡片上也不会劫持滚轮，页面照常滚动；点击卡片外或按 **Esc** 退出交互）：
 
 ![卡片内交互查看器：右上角「适应窗口 / 全屏」，底部操作提示](deliverables/effect-viewer.png)
 
-- **滚轮** 上/下：以光标为中心放大 / 缩小；
+- **滚轮** 上/下：以光标为中心放大 / 缩小（仅交互状态下生效；放大时按矢量重绘，文字与线条保持清晰）；
 - **右键拖动**：平移；
 - **左键拖动**：框选一块区域，松开后把该区域铺满当前窗口；
 - **中键单击 / 双击**：复位（适应窗口）；
@@ -60,7 +61,7 @@ dsh-pele/
 │   ├── package.json            # dsh.bundle.patch + dsh.client(platform=web)
 │   ├── locale/{zh,en}.json     # Plugin Manager 显示元数据
 │   ├── icon.svg                # 插件图标（原创）
-│   └── vendor/pele.js          # vendored pele 1.10.0 ESM 构建（MIT，见 pele.LICENSE）
+│   └── vendor/pele.js          # vendored pele 1.12.0 ESM 构建（MIT，见 pele.LICENSE）
 ├── scripts/
 │   ├── selftest.mjs            # 离线渲染自检：23 种图表 + 错误路径（含 mindmap 关键字坑）
 │   ├── card-ssr-test.mjs       # 卡片组件 SSR 测试：注册契约 + 三阶段渲染 + 清洗 + 下载入口 + 查看器控件
@@ -108,10 +109,10 @@ pele_draw({
 
 工具结果只包含摘要（类型/尺寸/字节），**SVG 不进入模型上下文**：它通过 `output.presentationMeta` 持久化在 `tool/result` 的 `meta` 字段，由客户端卡片读取并内联渲染；需要文件时由用户点卡片右上角下载，插件本身不写工作区。
 
-- 支持 pele 1.10.0 的全部 33 种 Mermaid 12.1 图表类型：flowchart、sequenceDiagram、classDiagram、stateDiagram-v2、erDiagram、gantt、pie、quadrantChart、xychart-beta、mindmap、timeline、journey、gitGraph、sankey-beta、block-beta、packet-beta、kanban、architecture-beta、radar-beta、treemap、info、agentflow、usecase、railroad、treeView、venn、cynefin、wardley、swimlane、ishikawa、eventmodeling、C4、requirementDiagram。
+- 支持 pele 1.12.0 的全部 33 种 Mermaid 12.1 图表类型：flowchart、sequenceDiagram、classDiagram、stateDiagram-v2、erDiagram、gantt、pie、quadrantChart、xychart-beta、mindmap、timeline、journey、gitGraph、sankey-beta、block-beta、packet-beta、kanban、architecture-beta、radar-beta、treemap、info、agentflow、usecase、railroad、treeView、venn、cynefin、wardley、swimlane、ishikawa、eventmodeling、C4、requirementDiagram。
 - 语法错误会返回 Mermaid 行号/列号与片段，模型可自行修正后重试。
 - 卡片跟随 DSH 明/暗主题：pele 的 `--pele-*` 颜色变量映射到 `--dsw-alias-*` 主题 token，同一份 SVG 无需重渲染。
-- 卡片显示：标题/类型、尺寸与体积徽章、可交互 SVG；右上角下载菜单提供「下载 SVG」（主题中立的矢量图）与「下载 PNG」（跟随当前明/暗主题、2x 栅格化、背景取卡片背景）；图表支持滚轮缩放、右键拖动、左键框选、中键复位与全屏查看。
+- 卡片显示：标题/类型、尺寸与体积徽章、可交互 SVG；右上角下载菜单提供「下载 SVG」（主题中立的矢量图）与「下载 PNG」（跟随当前明/暗主题、2x 栅格化、背景取卡片背景）；图表采用「点击激活」交互：点击后可用滚轮缩放、右键拖动、左键框选、中键复位与全屏查看，未激活时滚轮滚动页面。
 
 ## 系统提示（prompt）
 
@@ -136,12 +137,13 @@ pele_draw({
 | 项目 | 结果 | 方式 |
 | --- | --- | --- |
 | 离线渲染自检 | 23/23 通过 + 4 类错误路径 + 对比度校正断言 | `node scripts/selftest.mjs` |
-| 卡片组件 SSR 测试 | 14/14 通过（含下载入口/查看器控件/菜单默认关闭/无 SVG 不显示/配色断言） | `node scripts/card-ssr-test.mjs` |
+| 卡片组件 SSR 测试 | 14/14 通过（含默认未激活/查看器可聚焦/激活提示/下载入口/菜单默认关闭/无 SVG 不显示/配色断言） | `node scripts/card-ssr-test.mjs` |
 | 33 类语料遍历 | 33/33 图表类型成功，0 失败 | `node scripts/build-traversal-report.mjs`（与 `pele_draw` 同一渲染链路），报告见 `research/traversal-report.json` |
 | 渲染结果视觉核验 | 33 种图表全部正确渲染 | `deliverables/traversal-gallery.png`（由 33 个真实 SVG 内联生成） |
 | 客户端注册 | `tool.call.toolview` 中 `pele_draw` 卡片 active | `cordis_inspect_query` 实时查询 |
 | 下载功能（真实浏览器） | 菜单导出 SVG（5.4 KB）与 PNG（1546×312，2x）均成功 | 临时实例中点击卡片下载菜单，校验文件头/尺寸 |
-| 交互查看器（真实浏览器） | 滚轮缩放 / 中键复位 / 右键平移 / 左键框选 / 全屏 + Esc 关闭全部通过 | 临时实例中驱动真实鼠标事件，读取查看器 transform 变化 |
+| 交互查看器（真实浏览器） | 滚轮缩放 / 中键复位 / 右键平移 / 左键框选 / 全屏 + Esc 关闭全部通过 | 临时实例中驱动真实鼠标事件，读取查看器缩放/位置状态 |
+| 渲染器版本与升级兼容性 | `info` 图输出 `Pele v1.12.0`；33/33 语料在 1.12.0 下尺寸与 1.10.0 完全一致 | 会话内渲染 `info` 图表并读 `tool/result.meta`；`node scripts/build-traversal-report.mjs` |
 
 复跑：
 
@@ -168,11 +170,11 @@ npm run demo        # 生成 pele vs mermaid.js 对比页与渲染过程页
 - 超宽图在卡片中按 `max-width:100%` 等比缩小；图表较大时卡片主体可滚动。
 - 下载的 SVG 使用 pele 的浅色回退配色（主题中立，任何查看器都能看清）；PNG 才渲染当前明/暗主题。
 - 会话 Turn 落定后，DSH 会把较早的工具行折叠进 Turn-process 分组（宿主行为，非插件问题）。
-- 同一页面同时出现多张 pele SVG 时，SVG 内部的元素 id（如 `U`/`A`/`D`）可能重复：pele 渲染器不使用我们传入的 `idPrefix`（实测 1.9.0/1.10.0），目前不影响显示，属于记录在案的已知限制。
+- 同一页面同时出现多张 pele SVG 时，SVG 内部的元素 id（如 `U`/`A`/`D`）可能重复：pele 渲染器不使用我们传入的 `idPrefix` 作为元素 id（1.9–1.12 实测如此），目前不影响显示，属于记录在案的已知限制。
 - 交互查看器以鼠标操作为主（滚轮缩放、右键拖动、左键框选）；触控板捏合与触屏手势未做专门适配。
 - 文字对比度校正只处理「节点填充色 + 标签文字」这一组合；作者显式指定文字颜色时保持作者选择。
 
 ## 许可
 
 - 本插件：MIT，见 [`LICENSE`](LICENSE)。
-- vendored `pele` 1.10.0：MIT，版权 kepano / obsidianmd，见 [`plugin/vendor/pele.LICENSE`](plugin/vendor/pele.LICENSE)。
+- vendored `pele` 1.12.0：MIT，版权 kepano / obsidianmd，见 [`plugin/vendor/pele.LICENSE`](plugin/vendor/pele.LICENSE)。

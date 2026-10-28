@@ -48,6 +48,8 @@ window.__ModuleLoader__.load({
 			'download.pngHint': '位图（当前主题）',
 			'download.failed': '导出失败，请重试',
 			'viewer.hint': '滚轮缩放 · 右键拖动 · 左键框选 · 中键复位',
+			'viewer.activate': '点击图表开始交互 · 未激活时滚轮滚动页面',
+			'viewer.deactivate': 'Esc 退出交互',
 			'viewer.fit': '适应窗口',
 			'viewer.fullscreen': '全屏查看',
 			'viewer.exit': '退出全屏',
@@ -70,6 +72,8 @@ window.__ModuleLoader__.load({
 			'download.pngHint': 'Bitmap, current theme',
 			'download.failed': 'Export failed, please retry',
 			'viewer.hint': 'Wheel to zoom · right-drag to pan · left-drag to box-zoom · middle-click to reset',
+			'viewer.activate': 'Click the diagram to interact · wheel scrolls the page until then',
+			'viewer.deactivate': 'Esc to exit interaction',
 			'viewer.fit': 'Fit to window',
 			'viewer.fullscreen': 'View fullscreen',
 			'viewer.exit': 'Exit fullscreen',
@@ -447,11 +451,21 @@ window.__ModuleLoader__.load({
 		function DiagramViewer(props) {
 			const { svg, width, height, heightPx, t, fullscreen = false, onFullscreen, onClose } = props;
 			const hostRef = React.useRef(null);
+			const canvasRef = React.useRef(null);
 			const marqueeRef = React.useRef(null);
 			const dragRef = React.useRef(null);
 			const interactedRef = React.useRef(false);
 			const [view, setView] = React.useState(null);
 			const [marquee, setMarquee] = React.useState(null);
+			// 交互激活（focus-gated）：只有点击/聚焦查看器之后才接管滚轮；
+			// 点击卡片外、按 Esc 或移走焦点后，滚轮重新交还给页面滚动，避免「鼠标悬停即劫持滚动」。
+			// 全屏层的实例生来就是激活态（全屏由用户显式点击进入）。
+			const [active, setActiveState] = React.useState(fullscreen);
+			const activeRef = React.useRef(fullscreen);
+			const setActive = React.useCallback((next) => {
+				activeRef.current = next;
+				setActiveState(next);
+			}, []);
 
 			/** 计算「适应窗口」的缩放与位置。 */
 			const fit = React.useCallback(() => {
@@ -478,11 +492,52 @@ window.__ModuleLoader__.load({
 				return () => observer.disconnect();
 			}, [fit]);
 
+			// 关键：放大时让 SVG 按新的布局尺寸「原生重绘」，而不是把整块内容栅格化后用 CSS
+			// transform 拉伸 —— 后者在部分环境（高分屏 / GPU 合成层 / 超大图）会被放大成位图，
+			// 越放越糊。这里只给注入的根 <svg> 加 100% 尺寸，缩放交由布局（width/height）完成。
+			React.useEffect(() => {
+				const canvas = canvasRef.current;
+				if (canvas === null) return;
+				const svgEl = canvas.querySelector('svg');
+				if (svgEl === null || svgEl.getAttribute('viewBox') === null) return;
+				svgEl.style.width = '100%';
+				svgEl.style.height = '100%';
+				svgEl.style.maxWidth = 'none';
+				svgEl.style.display = 'block';
+			}, [svg]);
+
+			// 激活态下监听「卡片外」的点击与 Esc：一旦焦点离开卡片，就退出交互、把滚轮还给页面。
+			// 边界取整张卡片（含标题栏/下载按钮），因此点卡片内部不会误退出。
+			React.useEffect(() => {
+				if (!active || fullscreen) return undefined;
+				const host = hostRef.current;
+				if (host === null) return undefined;
+				const card = host.closest('[data-tool="pele_draw"]');
+				const boundary = card === null ? host : card;
+				const onPointerDown = (event) => {
+					if (boundary.contains(event.target)) return;
+					setActive(false);
+				};
+				const onKeyDown = (event) => {
+					if (event.key !== 'Escape') return;
+					setActive(false);
+					host.blur();
+				};
+				document.addEventListener('mousedown', onPointerDown, true);
+				document.addEventListener('keydown', onKeyDown);
+				return () => {
+					document.removeEventListener('mousedown', onPointerDown, true);
+					document.removeEventListener('keydown', onKeyDown);
+				};
+			}, [active, fullscreen, setActive]);
+
 			// 滚轮缩放：用原生监听以便 preventDefault（React 的 onWheel 是 passive）。
 			React.useEffect(() => {
 				const host = hostRef.current;
 				if (host === null) return undefined;
 				const onWheel = (event) => {
+					// 未激活：不拦截滚轮，交给页面正常滚动（滚轮缩放只在点击激活后生效）。
+					if (!activeRef.current) return;
 					event.preventDefault();
 					interactedRef.current = true;
 					const rect = host.getBoundingClientRect();
@@ -554,6 +609,15 @@ window.__ModuleLoader__.load({
 			}, []);
 
 			const onMouseDown = (event) => {
+				// 第一次点击只用于把焦点交给卡片（激活交互），不开始拖动/框选；
+				// 之后在这个焦点里的点击才执行平移、框选等操作。
+				if (!activeRef.current) {
+					event.preventDefault();
+					const host = hostRef.current;
+					if (host !== null) host.focus({ preventScroll: true });
+					setActive(true);
+					return;
+				}
 				if (event.button === 1) {
 					// 中键：复位。
 					event.preventDefault();
@@ -580,15 +644,47 @@ window.__ModuleLoader__.load({
 			};
 
 			const viewerHeight = fullscreen ? '100%' : heightPx;
-			const transform = view === null ? 'none' : `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+			// 缩放通过「布局尺寸」表达（宽高按 scale 放大），SVG 是矢量、按新尺寸重绘。
+			const zoom = view === null ? 1 : view.scale;
+			const offsetX = view === null ? 0 : view.x;
+			const offsetY = view === null ? 0 : view.y;
+			const hintText = fullscreen
+				? t('viewer.hint')
+				: active
+					? `${t('viewer.hint')} · ${t('viewer.deactivate')}`
+					: t('viewer.activate');
 
 			return h(
 				'div',
 				{
 					ref: hostRef,
 					'data-pele-viewer': '',
-					style: { ...VIEWER_STYLE, ...THEME_VARS, height: viewerHeight },
+					'data-pele-active': active ? 'true' : 'false',
+					tabIndex: 0,
+					role: 'group',
+					'aria-label': active ? t('viewer.hint') : t('viewer.activate'),
+					style: {
+						...VIEWER_STYLE,
+						...THEME_VARS,
+						height: viewerHeight,
+						outline: 'none',
+						cursor: active ? 'grab' : 'default',
+						// 激活态给一圈内描边，作为「现在滚轮/拖动作用于这张图」的可见提示。
+						boxShadow: active && !fullscreen
+							? 'inset 0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent)'
+							: 'none',
+					},
 					onMouseDown,
+					onFocus: () => setActive(true),
+					onBlur: (event) => {
+						const next = event.relatedTarget;
+						const host = hostRef.current;
+						// 焦点仍留在同一张卡片内（如工具条/下载按钮）时保持激活。
+						const card = host === null ? null : host.closest('[data-tool="pele_draw"]');
+						const boundary = card === null ? host : card;
+						if (next !== null && next !== undefined && boundary !== null && boundary.contains(next)) return;
+						if (!fullscreen) setActive(false);
+					},
 					onContextMenu: (event) => event.preventDefault(),
 					onDoubleClick: () => {
 						interactedRef.current = false;
@@ -596,7 +692,14 @@ window.__ModuleLoader__.load({
 					},
 				},
 				h('div', {
-					style: { position: 'absolute', left: 0, top: 0, transform, transformOrigin: '0 0', willChange: 'transform' },
+					ref: canvasRef,
+					style: {
+						position: 'absolute',
+						left: offsetX,
+						top: offsetY,
+						width: Math.max(1, width * zoom),
+						height: Math.max(1, height * zoom),
+					},
 					dangerouslySetInnerHTML: { __html: svg },
 				}),
 				marquee === null
@@ -629,7 +732,7 @@ window.__ModuleLoader__.load({
 							? null
 							: h(IconButton, { label: t('viewer.fullscreen'), onClick: onFullscreen }, h(FullscreenGlyph, {})),
 				),
-				h('div', { style: HINT_STYLE }, t('viewer.hint')),
+				h('div', { style: HINT_STYLE, 'data-pele-hint': active ? 'active' : 'idle' }, hintText),
 			);
 		}
 
@@ -698,6 +801,14 @@ window.__ModuleLoader__.load({
 					if (!Number.isFinite(rawWidth) || !Number.isFinite(rawHeight) || rawWidth <= 0 || rawHeight <= 0) {
 						throw new Error('invalid SVG size');
 					}
+					// 查看器给根 <svg> 加了 100% 尺寸用于矢量缩放；导出时改回自然尺寸，
+					// 否则 SVG 作为图片加载会按默认视口（300×150）栅格化，PNG 反而发糊。
+					clone.setAttribute('width', String(Math.round(rawWidth)));
+					clone.setAttribute('height', String(Math.round(rawHeight)));
+					clone.style.removeProperty('width');
+					clone.style.removeProperty('height');
+					clone.style.removeProperty('max-width');
+					clone.style.removeProperty('display');
 					// 2x 输出；超长边/超面积时等比降级，避免 canvas 过大。
 					const scale = Math.min(2, 4096 / Math.max(rawWidth, rawHeight), Math.sqrt(16_000_000 / (rawWidth * rawHeight)));
 					const width = Math.max(1, Math.round(rawWidth * scale));
@@ -980,7 +1091,14 @@ window.__ModuleLoader__.load({
 				);
 			}
 
-			const card = h('div', { style: CARD_STYLE, 'data-tool': 'pele_draw', 'data-state': state }, header, body);
+			// 点击卡片任意位置（标题栏、徽章等）都把焦点交给图表查看器，等于「点击卡片激活交互」。
+			// 图表区域自身的点击由 DiagramViewer 处理（激活且不触发拖动）。
+			const activateFromCard = (event) => {
+				const viewer = event.currentTarget.querySelector('[data-pele-viewer]');
+				if (viewer !== null && !viewer.contains(event.target)) viewer.focus({ preventScroll: true });
+			};
+
+			const card = h('div', { style: CARD_STYLE, 'data-tool': 'pele_draw', 'data-state': state, onClick: activateFromCard }, header, body);
 
 			// 全屏叠加层：固定定位覆盖整个 DSH 页面（Esc / 关闭按钮退出）。
 			const overlay = fullscreen && svg !== undefined

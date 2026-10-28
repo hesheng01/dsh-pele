@@ -7,7 +7,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderDiagram } from '../plugin/render.js';
+import { ensureNodeLabelContrast, renderDiagram } from '../plugin/render.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -92,7 +92,9 @@ try {
 	if (!hinted) failures += 1;
 }
 
-// 对比度校正：classDef/固定填充色节点的标签应自动换成高对比文字色（夜间模式可读）。
+// 对比度校正：classDef/固定填充色节点的标签应换成高对比文字色（夜间模式可读）。
+// pele 1.12+ 原生输出 fill="var(--pele-fg-on-light,#1f1f1f)" / fill="var(--pele-fg-on-dark,#fff)"；
+// 更早版本由 render.js 的 ensureNodeLabelContrast 注入 #1f1f1f / #f5f5f5 字面量 —— 两种都算通过。
 {
 	const light = renderDiagram('flowchart LR\n  A["浅底"]:::risk\n  classDef risk fill:#fecaca');
 	const dark = renderDiagram('flowchart LR\n  A["深底"]:::dark\n  classDef dark fill:#1f2937');
@@ -101,9 +103,24 @@ try {
 		console.log(`- 对比度校正: ${message} ${ok ? '✅' : '（FAILED）'}`);
 		if (!ok) failures += 1;
 	};
-	check(/class="pele-label"[^>]*fill="#1f1f1f"/.test(light.svg), '浅色填充 → 深色文字');
-	check(/class="pele-label"[^>]*fill="#f5f5f5"/.test(dark.svg), '深色填充 → 浅色文字');
-	check(!/class="pele-label"[^>]*fill="#(?:1f1f1f|f5f5f5)"/.test(plain.svg), '默认主题节点不注入文字色');
+	check(
+		/<text class="pele-label"[^>]*fill="(?:var\(--pele-fg-on-light,)?#1f1f1f\)?"/.test(light.svg),
+		'浅色填充 → 深色文字',
+	);
+	check(
+		/<text class="pele-label"[^>]*fill="(?:var\(--pele-fg-on-dark,)?#(?:f5f5f5|fff)\)?"/.test(dark.svg),
+		'深色填充 → 浅色文字',
+	);
+	check(!/class="pele-label"[^>]*fill=/.test(plain.svg), '默认主题节点不注入文字色');
+	// 兜底路径：旧版本 pele 输出（标签无 fill，节点 style 里带显式填充色）。
+	const legacyLight = ensureNodeLabelContrast(
+		'<svg xmlns="http://www.w3.org/2000/svg"><g class="pele-node pele-shape-rect"><rect style="fill:#fecaca"/><text class="pele-label">旧浅底</text></g></svg>',
+	);
+	const legacyDark = ensureNodeLabelContrast(
+		'<svg xmlns="http://www.w3.org/2000/svg"><g class="pele-node pele-shape-rect"><rect style="fill:#1f2937"/><text class="pele-label">旧深底</text></g></svg>',
+	);
+	check(legacyLight.includes('fill="#1f1f1f"'), '旧格式 SVG 兜底：浅色填充 → 深色文字');
+	check(legacyDark.includes('fill="#f5f5f5"'), '旧格式 SVG 兜底：深色填充 → 浅色文字');
 }
 
 // 安全上限：用极小的 outputLimit 触发 pele 的 limit 错误路径。

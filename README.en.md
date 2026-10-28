@@ -11,7 +11,8 @@
 Draw diagrams in **DeepSeek Harness (DSH)** sessions with [pele](https://github.com/obsidianmd/pele) (a Mermaid → SVG renderer). The model calls the `pele_draw` tool with Mermaid source; the Host renders it to SVG with pele (keeping the SVG out of the model context), and the Web client turns that tool call into an **inline diagram card**. The card offers **SVG** / **PNG** downloads from its top-right corner, and the plugin never writes workspace files.
 
 - Target profile: `web` (DSH 0.2.1-rc.2)
-- Version: **0.1.1** (open-source release; not published to npm yet — install from a local directory or Git)
+- Version: **0.1.2** (open-source release; not published to npm yet — install from a local directory or Git)
+- What's new in 0.1.2: click-to-activate viewer (hover no longer hijacks the wheel), crisp vector re-render while zooming, and vendored pele upgraded to **1.12.0** (details in [CHANGELOG.md](CHANGELOG.md))
 - Repository: <https://github.com/hesheng01/dsh-pele>
 - Plain JS, no build step, no runtime npm dependencies (pele is vendored under `plugin/vendor/` with its MIT license)
 
@@ -28,11 +29,11 @@ The download button at the card's top-right opens two options:
 - **Download SVG**: a theme-neutral vector image (pele's light fallback colors) that renders everywhere;
 - **Download PNG**: a bitmap that follows the current light/dark theme, rasterized at 2x with the card background — what you see is what you get.
 
-Complex diagrams can also be inspected right in the card:
+Complex diagrams can also be inspected right in the card (**click the diagram to interact**: until the viewer is activated the wheel keeps scrolling the page; click outside the card or press **Esc** to exit interaction):
 
 ![In-card interactive viewer: fit / fullscreen at the top-right, gesture hint at the bottom](deliverables/effect-viewer.png)
 
-- **Mouse wheel** up/down: zoom in / out around the cursor;
+- **Mouse wheel** up/down: zoom in / out around the cursor (only while the viewer is active; the diagram re-renders as vectors while zooming, so text and lines stay crisp);
 - **Right-drag**: pan;
 - **Left-drag**: draw a box; releasing zooms that box to fill the window;
 - **Middle-click / double-click**: reset (fit to window);
@@ -60,7 +61,7 @@ dsh-pele/
 │   ├── package.json            # dsh.bundle.patch + dsh.client(platform=web)
 │   ├── locale/{zh,en}.json     # Plugin Manager display metadata
 │   ├── icon.svg                # plugin icon (original)
-│   └── vendor/pele.js          # vendored pele 1.10.0 ESM build (MIT, see pele.LICENSE)
+│   └── vendor/pele.js          # vendored pele 1.12.0 ESM build (MIT, see pele.LICENSE)
 ├── scripts/
 │   ├── selftest.mjs            # offline render self-test: 23 diagram types + error paths (incl. mindmap keyword quirk)
 │   ├── card-ssr-test.mjs       # card SSR test: registration contract + three phases + sanitizing + download entry + viewer controls
@@ -108,10 +109,10 @@ pele_draw({
 
 The tool result contains only a summary (type / size / bytes). **The SVG never enters the model context**: it is persisted on the `tool/result` event through `output.presentationMeta` (`meta` field), read by the client card and rendered inline. When the user needs a file, they download it from the card's top-right button; the plugin writes nothing to the workspace.
 
-- Supports all 33 Mermaid 12.1 diagram types of pele 1.10.0: flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, gantt, pie, quadrantChart, xychart-beta, mindmap, timeline, journey, gitGraph, sankey-beta, block-beta, packet-beta, kanban, architecture-beta, radar-beta, treemap, info, agentflow, usecase, railroad, treeView, venn, cynefin, wardley, swimlane, ishikawa, eventmodeling, C4, requirementDiagram.
+- Supports all 33 Mermaid 12.1 diagram types of pele 1.12.0: flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, gantt, pie, quadrantChart, xychart-beta, mindmap, timeline, journey, gitGraph, sankey-beta, block-beta, packet-beta, kanban, architecture-beta, radar-beta, treemap, info, agentflow, usecase, railroad, treeView, venn, cynefin, wardley, swimlane, ishikawa, eventmodeling, C4, requirementDiagram.
 - Syntax errors return Mermaid line/column and a snippet so the model can fix and retry.
 - Cards follow the DSH light/dark theme: pele's `--pele-*` color variables are mapped to `--dsw-alias-*` theme tokens, so a single SVG never needs re-rendering.
-- Card contents: title/type, size and byte badges, an interactive SVG, plus a download menu for **Download SVG** (theme-neutral vector) and **Download PNG** (current theme, 2x, card background); wheel zoom, right-drag pan, left-drag box zoom, middle-click reset and fullscreen view are supported.
+- Card contents: title/type, size and byte badges, an interactive SVG, plus a download menu for **Download SVG** (theme-neutral vector) and **Download PNG** (current theme, 2x, card background); the viewer uses a click-to-activate model: once clicked, wheel zoom, right-drag pan, left-drag box zoom, middle-click reset and fullscreen view are available, while an inactive viewer lets the wheel scroll the page.
 
 ## System prompt
 
@@ -136,12 +137,13 @@ When `config.prompt` is `true` (default), the plugin injects a `## Diagrams (pel
 | Item | Result | How |
 | --- | --- | --- |
 | Offline render self-test | 23/23 passed + 4 error paths + contrast assertions | `node scripts/selftest.mjs` |
-| Card SSR test | 14/14 passed (download entry, viewer controls, closed menu, no-SVG case) | `node scripts/card-ssr-test.mjs` |
+| Card SSR test | 14/14 passed (idle-by-default viewer, focusable viewer, activation hint, download entry, closed menu, no-SVG case) | `node scripts/card-ssr-test.mjs` |
 | 33-type corpus traversal | 33/33 diagram types ok, 0 failures | `node scripts/build-traversal-report.mjs` (same render path as `pele_draw`), see `research/traversal-report.json` |
 | Visual check | All 33 diagram types render correctly | `deliverables/traversal-gallery.png` (built from the 33 real SVGs) |
 | Client registration | `pele_draw` card active in `tool.call.toolview` | live `cordis_inspect_query` |
 | Download feature (real browser) | SVG (5.4 KB) and PNG (1546×312, 2x) exported successfully | clicked the card menu in a temporary instance; checked file headers/dimensions |
-| Interactive viewer (real browser) | wheel zoom / middle-click reset / right-drag pan / left-drag box zoom / fullscreen + Esc all pass | drove real mouse events and read the viewer transform in a temporary instance |
+| Interactive viewer (real browser) | wheel zoom / middle-click reset / right-drag pan / left-drag box zoom / fullscreen + Esc all pass | drove real mouse events and read the viewer's zoom/position state in a temporary instance |
+| Renderer version & upgrade compatibility | the `info` diagram prints `Pele v1.12.0`; all 33 corpus diagrams keep identical sizes after the upgrade | render an `info` diagram in a session and read `tool/result.meta`; `node scripts/build-traversal-report.mjs` |
 
 Re-run:
 
@@ -168,11 +170,11 @@ npm run demo        # build the pele vs mermaid.js and rendering-process pages
 - Very wide diagrams scale down with `max-width:100%`; the card body scrolls for large diagrams.
 - Downloaded SVGs use pele's light fallback colors (theme-neutral, visible anywhere); only PNG follows the current light/dark theme.
 - After a turn settles, DSH folds earlier tool rows into the turn-process group (host behavior, not a plugin issue).
-- Multiple pele SVGs on one page can repeat internal element ids (e.g. `U`/`A`/`D`): the renderer ignores our `idPrefix` (verified with 1.9.0/1.10.0). It does not affect display today and is recorded as a known limitation.
+- Multiple pele SVGs on one page can repeat internal element ids (e.g. `U`/`A`/`D`): the renderer does not use our `idPrefix` as element ids (verified across 1.9–1.12). It does not affect display today and is recorded as a known limitation.
 - The interactive viewer targets mouse input (wheel zoom, right-drag pan, left-drag box zoom); trackpad pinch and touch gestures are not specially handled.
 - The contrast correction only covers "node fill + label text"; an explicitly specified text color is left untouched.
 
 ## License
 
 - This plugin: MIT, see [`LICENSE`](LICENSE).
-- Vendored `pele` 1.10.0: MIT, copyright kepano / obsidianmd, see [`plugin/vendor/pele.LICENSE`](plugin/vendor/pele.LICENSE).
+- Vendored `pele` 1.12.0: MIT, copyright kepano / obsidianmd, see [`plugin/vendor/pele.LICENSE`](plugin/vendor/pele.LICENSE).

@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { humanBytes, renderDiagram } from '../plugin/render.js';
 
 /** vendored pele 版本（升级 vendor 时同步修改）。 */
-const VENDORED_PELE_VERSION = '1.10.0';
+const VENDORED_PELE_VERSION = '1.12.0';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
