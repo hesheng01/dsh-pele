@@ -13,6 +13,7 @@ Draw diagrams in **DeepSeek Harness (DSH)** sessions with [pele](https://github.
 - Target profile: `web` (DSH 0.2.1-rc.2)
 - Version: **0.1.2** (open-source release; not published to npm yet — install from a local directory or Git)
 - What's new in 0.1.2: click-to-activate viewer (hover no longer hijacks the wheel), crisp vector re-render while zooming, and vendored pele upgraded to **1.12.0** (details in [CHANGELOG.md](CHANGELOG.md))
+- Unreleased: **double-click the diagram to toggle fullscreen** (double-click again inside fullscreen to exit); the old "double-click to reset" moved to middle-click and the "Fit to window" button so the two actions no longer compete for the same gesture
 - Repository: <https://github.com/hesheng01/dsh-pele>
 - Plain JS, no build step, no runtime npm dependencies (pele is vendored under `plugin/vendor/` with its MIT license)
 
@@ -36,8 +37,9 @@ Complex diagrams can also be inspected right in the card (**click the diagram to
 - **Mouse wheel** up/down: zoom in / out around the cursor (only while the viewer is active; the diagram re-renders as vectors while zooming, so text and lines stay crisp);
 - **Right-drag**: pan;
 - **Left-drag**: draw a box; releasing zooms that box to fill the window;
-- **Middle-click / double-click**: reset (fit to window);
-- The **fullscreen button** at the top-right expands the diagram over the current DSH page (Esc or the × closes it), with the same interactions available (see `deliverables/effect-fullscreen.png`).
+- **Double-click the diagram**: enter fullscreen; double-click again inside it to exit (same as Esc / the × button). A double-click right after a drag or box-zoom is ignored on purpose;
+- **Middle-click**: reset (fit to window; the top-right "Fit to window" button does the same);
+- The **fullscreen button** at the top-right expands the diagram over the current DSH page, with the same interactions available (see `deliverables/effect-fullscreen.png`).
 
 Edge-label background fix (top: `--pele-bg: transparent`, lines cut through the text; bottom: card background, labels mask the lines):
 
@@ -65,6 +67,7 @@ dsh-pele/
 ├── scripts/
 │   ├── selftest.mjs            # offline render self-test: 23 diagram types + error paths (incl. mindmap keyword quirk)
 │   ├── card-ssr-test.mjs       # card SSR test: registration contract + three phases + sanitizing + download entry + viewer controls
+│   ├── card-interaction-test.mjs # double-click fullscreen test: jsdom + React 18 dispatch real mouse events (gesture arbitration/guards)
 │   ├── build-gallery.mjs       # builds the visual index page from the 33 traversal results
 │   └── build-render-demo.mjs   # builds the "pele vs mermaid.js / rendering process" demo pages
 ├── research/                   # pele API / client contract research, 33-type corpus and traversal report
@@ -112,7 +115,7 @@ The tool result contains only a summary (type / size / bytes). **The SVG never e
 - Supports all 33 Mermaid 12.1 diagram types of pele 1.12.0: flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, gantt, pie, quadrantChart, xychart-beta, mindmap, timeline, journey, gitGraph, sankey-beta, block-beta, packet-beta, kanban, architecture-beta, radar-beta, treemap, info, agentflow, usecase, railroad, treeView, venn, cynefin, wardley, swimlane, ishikawa, eventmodeling, C4, requirementDiagram.
 - Syntax errors return Mermaid line/column and a snippet so the model can fix and retry.
 - Cards follow the DSH light/dark theme: pele's `--pele-*` color variables are mapped to `--dsw-alias-*` theme tokens, so a single SVG never needs re-rendering.
-- Card contents: title/type, size and byte badges, an interactive SVG, plus a download menu for **Download SVG** (theme-neutral vector) and **Download PNG** (current theme, 2x, card background); the viewer uses a click-to-activate model: once clicked, wheel zoom, right-drag pan, left-drag box zoom, middle-click reset and fullscreen view are available, while an inactive viewer lets the wheel scroll the page.
+- Card contents: title/type, size and byte badges, an interactive SVG, plus a download menu for **Download SVG** (theme-neutral vector) and **Download PNG** (current theme, 2x, card background); the viewer uses a click-to-activate model: once clicked, wheel zoom, right-drag pan, left-drag box zoom, double-click fullscreen and middle-click reset are available, while an inactive viewer lets the wheel scroll the page.
 
 ## System prompt
 
@@ -138,6 +141,7 @@ When `config.prompt` is `true` (default), the plugin injects a `## Diagrams (pel
 | --- | --- | --- |
 | Offline render self-test | 23/23 passed + 4 error paths + contrast assertions | `node scripts/selftest.mjs` |
 | Card SSR test | 14/14 passed (idle-by-default viewer, focusable viewer, activation hint, download entry, closed menu, no-SVG case) | `node scripts/card-ssr-test.mjs` |
+| Double-click fullscreen interaction test | 8/8 passed (single click only activates, double-click enters/exits fullscreen, toolbar protection, 400ms post-drag guard, 3px jitter threshold, detail=2 never starts a box) | `node scripts/card-interaction-test.mjs` (jsdom + React 18 mounts the card and dispatches real mouse events) |
 | 33-type corpus traversal | 33/33 diagram types ok, 0 failures | `node scripts/build-traversal-report.mjs` (same render path as `pele_draw`), see `research/traversal-report.json` |
 | Visual check | All 33 diagram types render correctly | `deliverables/traversal-gallery.png` (built from the 33 real SVGs) |
 | Client registration | `pele_draw` card active in `tool.call.toolview` | live `cordis_inspect_query` |
@@ -148,10 +152,11 @@ When `config.prompt` is `true` (default), the plugin injects a `## Diagrams (pel
 Re-run:
 
 ```bash
-npm test            # offline render self-test (= node scripts/selftest.mjs)
-npm run test:ssr    # card SSR test (needs react/react-dom under .probe/ssr)
-npm run gallery     # build the visual index page from research/traversal-report.json
-npm run demo        # build the pele vs mermaid.js and rendering-process pages
+npm test              # offline render self-test (= node scripts/selftest.mjs)
+npm run test:ssr      # card SSR test (needs react/react-dom under .probe/ssr)
+npm run test:interaction  # double-click fullscreen interaction test (needs react/react-dom/jsdom under .probe/ssr)
+npm run gallery       # build the visual index page from research/traversal-report.json
+npm run demo          # build the pele vs mermaid.js and rendering-process pages
 ```
 
 ## Implementation notes
@@ -163,6 +168,7 @@ npm run demo        # build the pele vs mermaid.js and rendering-process pages
 5. **Determinism**: every diagram gets a `sha1`-derived `idPrefix` (note: pele's render output does not use it in 1.9/1.10, so duplicate element ids are possible on one page — see limitations).
 6. **Tool schema**: `output.schema` uses the dsh-tools "value schema DSL" (required flags on properties), not raw JSON Schema.
 7. **Label contrast on fixed fills**: models often use `classDef` to give nodes a fixed fill (e.g. `fill:#fecaca`), while label text inherits the theme text color — in dark mode, light fills plus light text become nearly unreadable. After rendering, the Host injects a high-contrast label color based on the fill's relative luminance (an author-specified `color` is respected); before/after in `deliverables/effect-dark-contrast.png`.
+8. **Gesture arbitration (double-click fullscreen)**: double-click toggles fullscreen. To keep it from fighting drag/box-zoom, `client.js` applies four guards: (a) the second `mousedown` of a double-click (`detail=2`) never starts a drag; (b) a selection box only appears after the pointer moves more than 3px, so tiny double-click jitter shows no flicker; (c) a real drag records a 400ms window during which any `dblclick` is ignored; (d) clicks and double-clicks inside the toolbar never toggle fullscreen. The old "double-click to reset" is gone — reset remains on middle-click and the "Fit to window" button.
 
 ## Known limitations
 
@@ -171,7 +177,7 @@ npm run demo        # build the pele vs mermaid.js and rendering-process pages
 - Downloaded SVGs use pele's light fallback colors (theme-neutral, visible anywhere); only PNG follows the current light/dark theme.
 - After a turn settles, DSH folds earlier tool rows into the turn-process group (host behavior, not a plugin issue).
 - Multiple pele SVGs on one page can repeat internal element ids (e.g. `U`/`A`/`D`): the renderer does not use our `idPrefix` as element ids (verified across 1.9–1.12). It does not affect display today and is recorded as a known limitation.
-- The interactive viewer targets mouse input (wheel zoom, right-drag pan, left-drag box zoom); trackpad pinch and touch gestures are not specially handled.
+- The interactive viewer targets mouse input (wheel zoom, right-drag pan, left-drag box zoom, double-click fullscreen); trackpad pinch and touch gestures are not specially handled.
 - The contrast correction only covers "node fill + label text"; an explicitly specified text color is left untouched.
 
 ## License

@@ -13,6 +13,7 @@
 - 目标 profile：`web`（DSH 0.2.1-rc.2）
 - 版本：**0.1.2**（开源版本；尚未发布到 npm，可用本地目录或 Git 仓库安装）
 - 0.1.2 变更：查看器改为**点击激活**（未激活时悬停滚轮照常滚动页面）、放大按矢量重绘不再发糊、vendored pele 升级至 **1.12.0**（明细见 [CHANGELOG.md](CHANGELOG.md)）
+- 未发布：**双击图表切换全屏**（全屏里再双击退出）；原来的「双击复位」改由中键与右上角「适应窗口」按钮承担，避免两个动作抢同一个手势
 - 仓库：<https://github.com/hesheng01/dsh-pele>
 - 纯 JS、无构建步骤、无运行时 npm 依赖（pele 以 MIT 许可 vendored 在 `plugin/vendor/`）
 
@@ -36,8 +37,9 @@
 - **滚轮** 上/下：以光标为中心放大 / 缩小（仅交互状态下生效；放大时按矢量重绘，文字与线条保持清晰）；
 - **右键拖动**：平移；
 - **左键拖动**：框选一块区域，松开后把该区域铺满当前窗口；
-- **中键单击 / 双击**：复位（适应窗口）；
-- 右上角 **全屏按钮**：把图铺满当前 DSH 页面（Esc 或右上角 × 退出），全屏里同样支持以上操作（见 `deliverables/effect-fullscreen.png`）。
+- **双击图表**：进入全屏；在全屏里再双击 = 退出（与 Esc / 右上角 × 等价）。刚拖动或框选结束时不会误触发；
+- **中键单击**：复位（适应窗口；右上角「适应窗口」按钮等价）；
+- 右上角 **全屏按钮**：把图铺满当前 DSH 页面，全屏里同样支持以上操作（见 `deliverables/effect-fullscreen.png`）。
 
 边标签背景修复对比（上：`--pele-bg: transparent`，连线穿过文字；下：卡片底色，标签正确遮挡连线）：
 
@@ -65,6 +67,7 @@ dsh-pele/
 ├── scripts/
 │   ├── selftest.mjs            # 离线渲染自检：23 种图表 + 错误路径（含 mindmap 关键字坑）
 │   ├── card-ssr-test.mjs       # 卡片组件 SSR 测试：注册契约 + 三阶段渲染 + 清洗 + 下载入口 + 查看器控件
+│   ├── card-interaction-test.mjs # 双击全屏交互测试：jsdom + React 18 派发真实鼠标事件（手势仲裁/防误触）
 │   ├── build-gallery.mjs       # 把 33 种遍历结果生成为视觉索引页
 │   └── build-render-demo.mjs   # 「pele vs mermaid.js / 渲染过程」演示页生成
 ├── research/                   # pele API/客户端契约调研、33 种图表语料与遍历报告
@@ -112,7 +115,7 @@ pele_draw({
 - 支持 pele 1.12.0 的全部 33 种 Mermaid 12.1 图表类型：flowchart、sequenceDiagram、classDiagram、stateDiagram-v2、erDiagram、gantt、pie、quadrantChart、xychart-beta、mindmap、timeline、journey、gitGraph、sankey-beta、block-beta、packet-beta、kanban、architecture-beta、radar-beta、treemap、info、agentflow、usecase、railroad、treeView、venn、cynefin、wardley、swimlane、ishikawa、eventmodeling、C4、requirementDiagram。
 - 语法错误会返回 Mermaid 行号/列号与片段，模型可自行修正后重试。
 - 卡片跟随 DSH 明/暗主题：pele 的 `--pele-*` 颜色变量映射到 `--dsw-alias-*` 主题 token，同一份 SVG 无需重渲染。
-- 卡片显示：标题/类型、尺寸与体积徽章、可交互 SVG；右上角下载菜单提供「下载 SVG」（主题中立的矢量图）与「下载 PNG」（跟随当前明/暗主题、2x 栅格化、背景取卡片背景）；图表采用「点击激活」交互：点击后可用滚轮缩放、右键拖动、左键框选、中键复位与全屏查看，未激活时滚轮滚动页面。
+- 卡片显示：标题/类型、尺寸与体积徽章、可交互 SVG；右上角下载菜单提供「下载 SVG」（主题中立的矢量图）与「下载 PNG」（跟随当前明/暗主题、2x 栅格化、背景取卡片背景）；图表采用「点击激活」交互：点击后可用滚轮缩放、右键拖动、左键框选、双击全屏、中键复位，未激活时滚轮滚动页面。
 
 ## 系统提示（prompt）
 
@@ -138,6 +141,7 @@ pele_draw({
 | --- | --- | --- |
 | 离线渲染自检 | 23/23 通过 + 4 类错误路径 + 对比度校正断言 | `node scripts/selftest.mjs` |
 | 卡片组件 SSR 测试 | 14/14 通过（含默认未激活/查看器可聚焦/激活提示/下载入口/菜单默认关闭/无 SVG 不显示/配色断言） | `node scripts/card-ssr-test.mjs` |
+| 双击全屏交互测试 | 8/8 通过（单击只激活、双击进/出全屏、工具栏保护、拖拽后 400ms 防误触、3px 抖动阈值、detail=2 不框选） | `node scripts/card-interaction-test.mjs`（jsdom + React 18 挂载卡片、派发真实鼠标事件） |
 | 33 类语料遍历 | 33/33 图表类型成功，0 失败 | `node scripts/build-traversal-report.mjs`（与 `pele_draw` 同一渲染链路），报告见 `research/traversal-report.json` |
 | 渲染结果视觉核验 | 33 种图表全部正确渲染 | `deliverables/traversal-gallery.png`（由 33 个真实 SVG 内联生成） |
 | 客户端注册 | `tool.call.toolview` 中 `pele_draw` 卡片 active | `cordis_inspect_query` 实时查询 |
@@ -148,10 +152,11 @@ pele_draw({
 复跑：
 
 ```bash
-npm test            # 离线渲染自检（= node scripts/selftest.mjs）
-npm run test:ssr    # 卡片 SSR 测试（需要 .probe/ssr 下的 react/react-dom）
-npm run gallery     # 由 research/traversal-report.json 生成视觉索引页
-npm run demo        # 生成 pele vs mermaid.js 对比页与渲染过程页
+npm test              # 离线渲染自检（= node scripts/selftest.mjs）
+npm run test:ssr      # 卡片 SSR 测试（需要 .probe/ssr 下的 react/react-dom）
+npm run test:interaction  # 双击全屏交互测试（需要 .probe/ssr 下的 react/react-dom/jsdom）
+npm run gallery       # 由 research/traversal-report.json 生成视觉索引页
+npm run demo          # 生成 pele vs mermaid.js 对比页与渲染过程页
 ```
 
 ## 实现要点
@@ -163,6 +168,7 @@ npm run demo        # 生成 pele vs mermaid.js 对比页与渲染过程页
 5. **确定性**：每张图用源码 sha1 生成 `idPrefix`（注意：pele 渲染输出实际不使用它，同页多图内部 id 可能重复，见已知限制）。
 6. **工具 schema**：`output.schema` 使用 dsh-tools 的「值 schema DSL」（必填标记写在属性上），不是原始 JSON Schema。
 7. **固定填充色的文字对比度**：模型常用 `classDef` 给节点指定填充色（如 `fill:#fecaca`），而标签文字默认继承主题文字色——夜间模式下浅色填充 + 浅色文字几乎看不清。Host 渲染后按填充色的相对亮度自动给标签注入深/浅高对比文字色（作者显式写的 `color` 不覆盖），对比图见 `deliverables/effect-dark-contrast.png`。
+8. **手势仲裁（双击全屏）**：双击是「进/出全屏」；为避免和拖动/框选打架，`client.js` 里做了四层保护：① 双击的第二次 `mousedown`（`detail=2`）不开始拖拽；② 鼠标移动超过 3px 才画出选框，双击时的微小抖动不闪框；③ 真实拖拽结束时记录 400ms 时间窗，窗内的 `dblclick` 一律忽略；④ 工具栏内的点击与双击都不触发全屏。原「双击复位」取消，复位保留在中键与「适应窗口」按钮上。
 
 ## 已知限制
 

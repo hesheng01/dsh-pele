@@ -5,7 +5,7 @@
 DSH bundle：注册模型工具 **`pele_draw`**，用 [pele](https://github.com/obsidianmd/pele) 把 Mermaid 源码渲染成 SVG，并在 Web 会话中以内联卡片显示。
 
 - Host 半身：`index.js` + `render.js`（工具注册、渲染、`presentationMeta`、错误诊断、系统提示）
-- 浏览器半身：`client.js`（`tool.call.toolview`，key=`pele_draw`；含卡片右上角的 SVG/PNG 下载菜单；卡片内查看器为「点击激活」交互：点击后滚轮缩放、右键平移、左键框选、中键复位、全屏）
+- 浏览器半身：`client.js`（`tool.call.toolview`，key=`pele_draw`；含卡片右上角的 SVG/PNG 下载菜单；卡片内查看器为「点击激活」交互：点击后滚轮缩放、右键平移、左键框选、双击切换全屏、中键复位，工具栏另有「适应窗口 / 全屏」按钮）
 - 依赖：无（`@deepseek-ai/dsh-tools` 等由 DSH 安装提供，声明为 peerDependencies；pele 已 vendored）
 - 显示元数据：`locale/zh.json`、`locale/en.json`；图标 `icon.svg`
 

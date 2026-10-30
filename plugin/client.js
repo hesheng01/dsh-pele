@@ -6,12 +6,13 @@
  * 用 dangerouslySetInnerHTML 注入；SVG 本身用 CSS 变量取色（--pele-*），
  * 所以把 DSH 主题 token 映射到这些变量后，同一份 SVG 在明/暗主题下都正确。
  *
- * 交互查看器（本版本新增）：
+ * 交互查看器：
  *   - 滚轮上/下 = 以光标为中心放大/缩小；
  *   - 右键拖动 = 平移；
  *   - 左键拖动 = 框选，松开后把框选区域铺满当前查看窗口；
- *   - 中键单击 / 双击 = 复位（适应窗口）；
- *   - 卡片右上角的全屏按钮 = 在当前 DSH 页面里全屏查看（Esc 退出），功能一致。
+ *   - 双击 = 进入 / 退出全屏（全屏层里再双击即退出）；
+ *   - 中键单击 = 复位（适应窗口）；
+ *   - 查看器右上角工具栏：适应窗口、全屏（全屏层里为退出全屏，Esc 也可退出）。
  *
  * 卡片右上角的下载按钮提供两种导出：
  *   - SVG：直接导出 Host 渲染的原始 SVG（主题中立，用 pele 的浅色回退变量，任何地方都可见）；
@@ -47,8 +48,9 @@ window.__ModuleLoader__.load({
 			'download.svgHint': '矢量图（主题中立）',
 			'download.pngHint': '位图（当前主题）',
 			'download.failed': '导出失败，请重试',
-			'viewer.hint': '滚轮缩放 · 右键拖动 · 左键框选 · 中键复位',
-			'viewer.activate': '点击图表开始交互 · 未激活时滚轮滚动页面',
+			'viewer.hint': '滚轮缩放 · 右键拖动 · 左键框选 · 双击全屏 · 中键复位',
+			'viewer.hintFullscreen': '滚轮缩放 · 右键拖动 · 左键框选 · 双击或 Esc 退出全屏 · 中键复位',
+			'viewer.activate': '点击开始交互 · 双击全屏 · 未激活时滚轮滚动页面',
 			'viewer.deactivate': 'Esc 退出交互',
 			'viewer.fit': '适应窗口',
 			'viewer.fullscreen': '全屏查看',
@@ -71,8 +73,9 @@ window.__ModuleLoader__.load({
 			'download.svgHint': 'Vector, theme-neutral',
 			'download.pngHint': 'Bitmap, current theme',
 			'download.failed': 'Export failed, please retry',
-			'viewer.hint': 'Wheel to zoom · right-drag to pan · left-drag to box-zoom · middle-click to reset',
-			'viewer.activate': 'Click the diagram to interact · wheel scrolls the page until then',
+			'viewer.hint': 'Wheel to zoom · right-drag to pan · left-drag to box-zoom · double-click for fullscreen · middle-click to reset',
+			'viewer.hintFullscreen': 'Wheel to zoom · right-drag to pan · left-drag to box-zoom · double-click or Esc to exit fullscreen · middle-click to reset',
+			'viewer.activate': 'Click to interact · double-click for fullscreen · wheel scrolls the page until then',
 			'viewer.deactivate': 'Esc to exit interaction',
 			'viewer.fit': 'Fit to window',
 			'viewer.fullscreen': 'View fullscreen',
@@ -436,7 +439,7 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * 交互式图表查看器：滚轮缩放、右键拖动、左键框选放大、中键/双击复位。
+		 * 交互式图表查看器：滚轮缩放、右键拖动、左键框选放大、双击切换全屏、中键复位。
 		 * 全屏时由调用方把它放进固定定位的容器（工具条提供退出按钮）。
 		 *
 		 * @param props.svg - 已清洗的 SVG 字符串（按自然尺寸参与 transform）。
@@ -447,14 +450,20 @@ window.__ModuleLoader__.load({
 		 * @param props.fullscreen - 是否处于全屏叠加层。
 		 * @param props.onFullscreen - 点全屏按钮时的回调（不传则不显示全屏按钮）。
 		 * @param props.onClose - 全屏时点关闭按钮的回调。
+		 * @param props.onToggleFullscreen - 双击图表时切换全屏的回调；不传则双击不响应。
 		 */
 		function DiagramViewer(props) {
-			const { svg, width, height, heightPx, t, fullscreen = false, onFullscreen, onClose } = props;
+			const { svg, width, height, heightPx, t, fullscreen = false, onFullscreen, onClose, onToggleFullscreen } = props;
 			const hostRef = React.useRef(null);
 			const canvasRef = React.useRef(null);
 			const marqueeRef = React.useRef(null);
 			const dragRef = React.useRef(null);
 			const interactedRef = React.useRef(false);
+			// 双击防线：拖拽刚结束时浏览器仍可能补发 dblclick，用 400ms 时间窗把它挡掉，
+			// 避免「框选/平移收尾的那一下」被误判成双击进全屏。
+			const dblGuardRef = React.useRef(0);
+			// 本次按下是否真的拖动过（超过抖动阈值）。没拖动过就不算拖拽，也不阻止双击。
+			const movedRef = React.useRef(false);
 			const [view, setView] = React.useState(null);
 			const [marquee, setMarquee] = React.useState(null);
 			// 交互激活（focus-gated）：只有点击/聚焦查看器之后才接管滚轮；
@@ -564,6 +573,9 @@ window.__ModuleLoader__.load({
 					const rect = host.getBoundingClientRect();
 					const px = clampNumber(event.clientX - rect.left, 0, rect.width);
 					const py = clampNumber(event.clientY - rect.top, 0, rect.height);
+					// 3px 抖动阈值：双击时两次点击之间的微小位移不进入拖拽，也不闪框选。
+					if (!movedRef.current && Math.abs(px - drag.px) < 3 && Math.abs(py - drag.py) < 3) return;
+					movedRef.current = true;
 					if (drag.mode === 'pan') {
 						setView((current) => (current === null ? current : { ...current, x: drag.x + (px - drag.px), y: drag.y + (py - drag.py) }));
 						return;
@@ -580,6 +592,9 @@ window.__ModuleLoader__.load({
 				const onUp = () => {
 					const drag = dragRef.current;
 					dragRef.current = null;
+					// 真拖动过：随后浏览器仍可能派发 dblclick，先把它挡掉（见 dblGuardRef）。
+					if (drag !== null && movedRef.current) dblGuardRef.current = Date.now() + 400;
+					movedRef.current = false;
 					if (drag !== null && drag.mode === 'box') {
 						const box = marqueeRef.current;
 						marqueeRef.current = null;
@@ -618,6 +633,20 @@ window.__ModuleLoader__.load({
 					setActive(true);
 					return;
 				}
+				const host = hostRef.current;
+				if (host === null) return;
+				// 工具栏上的点击交给按钮自己的 onClick（按钮已 stopPropagation）；
+				// 这里再兜一层：绝不让工具栏的点击变成拖拽/框选的起点。
+				const target = event.target;
+				if (target !== null && typeof target.closest === 'function' && target.closest('[data-pele-toolbar]') !== null) return;
+				// 双击的第二次按下只服务于 dblclick：此时不要开始拖拽/框选，否则会闪一下选框。
+				if (event.detail > 1) {
+					event.preventDefault();
+					return;
+				}
+				const rect = host.getBoundingClientRect();
+				const px = event.clientX - rect.left;
+				const py = event.clientY - rect.top;
 				if (event.button === 1) {
 					// 中键：复位。
 					event.preventDefault();
@@ -625,11 +654,7 @@ window.__ModuleLoader__.load({
 					fit();
 					return;
 				}
-				const host = hostRef.current;
-				if (host === null) return;
-				const rect = host.getBoundingClientRect();
-				const px = event.clientX - rect.left;
-				const py = event.clientY - rect.top;
+				movedRef.current = false;
 				if (event.button === 2) {
 					event.preventDefault();
 					dragRef.current = { mode: 'pan', px, py, x: view === null ? 0 : view.x, y: view === null ? 0 : view.y };
@@ -639,7 +664,7 @@ window.__ModuleLoader__.load({
 					event.preventDefault();
 					dragRef.current = { mode: 'box', px, py };
 					marqueeRef.current = { x: px, y: py, w: 0, h: 0 };
-					setMarquee(marqueeRef.current);
+					// 先不显示选框：等鼠标真的移动（>3px）再画，双击时就不会闪框。
 				}
 			};
 
@@ -649,7 +674,7 @@ window.__ModuleLoader__.load({
 			const offsetX = view === null ? 0 : view.x;
 			const offsetY = view === null ? 0 : view.y;
 			const hintText = fullscreen
-				? t('viewer.hint')
+				? t('viewer.hintFullscreen')
 				: active
 					? `${t('viewer.hint')} · ${t('viewer.deactivate')}`
 					: t('viewer.activate');
@@ -686,9 +711,15 @@ window.__ModuleLoader__.load({
 						if (!fullscreen) setActive(false);
 					},
 					onContextMenu: (event) => event.preventDefault(),
-					onDoubleClick: () => {
-						interactedRef.current = false;
-						fit();
+					onDoubleClick: (event) => {
+						// 双击图表 = 切换全屏（全屏层里再双击 = 退出）。
+						// 刚拖拽结束时浏览器仍可能补发 dblclick，先按时间窗挡掉，避免误触。
+						if (Date.now() < dblGuardRef.current) return;
+						const target = event.target;
+						if (target !== null && typeof target.closest === 'function' && target.closest('[data-pele-toolbar]') !== null) return;
+						if (onToggleFullscreen === undefined) return;
+						event.preventDefault();
+						onToggleFullscreen();
 					},
 				},
 				h('div', {
@@ -705,6 +736,7 @@ window.__ModuleLoader__.load({
 				marquee === null
 					? null
 					: h('div', {
+							'data-pele-marquee': '',
 							style: {
 								position: 'absolute',
 								left: marquee.x,
@@ -718,7 +750,12 @@ window.__ModuleLoader__.load({
 						}),
 				h(
 					'div',
-					{ style: TOOLBAR_STYLE },
+					{
+						'data-pele-toolbar': '',
+						style: TOOLBAR_STYLE,
+						// 双击工具栏按钮不应连带触发「双击全屏」。
+						onDoubleClick: (event) => event.stopPropagation(),
+					},
 					h(IconButton, {
 						label: t('viewer.fit'),
 						onClick: () => {
@@ -1080,6 +1117,8 @@ window.__ModuleLoader__.load({
 					heightPx: viewportHeight,
 					t,
 					onFullscreen: () => setFullscreen(true),
+					// 双击图表：进入全屏（与工具栏全屏按钮等价，只是少一次瞄准）。
+					onToggleFullscreen: () => setFullscreen(true),
 				});
 			} else {
 				body = h(
@@ -1148,6 +1187,8 @@ window.__ModuleLoader__.load({
 								fullscreen: true,
 								t,
 								onClose: () => setFullscreen(false),
+								// 全屏里再双击 = 退出全屏（与 Esc / 关闭按钮等价）。
+								onToggleFullscreen: () => setFullscreen(false),
 							}),
 						),
 					)

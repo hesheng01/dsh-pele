@@ -11,6 +11,7 @@
   "scripts": {
     "test": "node scripts/selftest.mjs",
     "test:ssr": "node scripts/card-ssr-test.mjs",
+    "test:interaction": "node scripts/card-interaction-test.mjs",
     "gallery": "node scripts/build-gallery.mjs",
     "demo": "node scripts/build-render-demo.mjs"
   },
